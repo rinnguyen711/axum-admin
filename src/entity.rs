@@ -38,7 +38,7 @@ pub struct CustomAction {
 }
 
 impl CustomAction {
-    pub fn new(name: &str, label: &str) -> CustomActionBuilder {
+    pub fn builder(name: &str, label: &str) -> CustomActionBuilder {
         CustomActionBuilder {
             name: name.to_string(),
             label: label.to_string(),

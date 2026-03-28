@@ -159,7 +159,7 @@ async fn entity_admin_custom_action() {
     let entity = EntityAdmin::new::<User>("users")
         .adapter(Box::new(MockAdapter))
         .action(
-            CustomAction::new("ban", "Ban Users")
+            CustomAction::builder("ban", "Ban Users")
                 .target(ActionTarget::List)
                 .confirm("Sure?")
                 .handler(|_ctx| Box::pin(async { Ok(ActionResult::Success("Banned".to_string())) })),
