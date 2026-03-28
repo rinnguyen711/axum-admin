@@ -2,40 +2,49 @@
 {% block title %}{{ entity_label }} — {{ admin_title }}{% endblock %}
 {% block content %}
 <div x-data="{ selected: [] }">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-    <h2>{{ entity_label }}</h2>
-    <a href="/admin/{{ entity_name }}/new" role="button">+ Add {{ entity_label }}</a>
+
+  <!-- Page header -->
+  <div class="flex items-end justify-between mb-8">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight text-zinc-900">{{ entity_label }}</h1>
+    </div>
+    <div class="flex items-center gap-3">
+
+      {% if actions %}
+      <div x-show="selected.length > 0" class="flex items-center gap-2">
+        {% for action in actions %}
+        {% if action.target == "list" %}
+        <button
+          hx-post="/admin/{{ entity_name }}/action/{{ action.name }}"
+          hx-include="[name='selected_ids']"
+          hx-target="#flash"
+          {% if action.confirm %}hx-confirm="{{ action.confirm }}"{% endif %}
+          class="flex items-center gap-2 px-4 py-2 bg-zinc-100 text-zinc-900 rounded-md text-sm font-medium hover:bg-zinc-200 transition-colors">
+          {{ action.label }}
+        </button>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
+        <input name="search" type="search" placeholder="Search..."
+               value="{{ search }}"
+               class="pl-8 pr-4 py-2 bg-zinc-100 border-none rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-black w-56"
+               hx-trigger="keyup changed delay:400ms, search"
+               hx-get="/admin/{{ entity_name }}/"
+               hx-target="#list-table" />
+      </div>
+
+      <a href="/admin/{{ entity_name }}/new"
+         class="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-md text-sm font-semibold hover:bg-zinc-800 transition-colors">
+        <i class="fa-solid fa-plus text-xs"></i>
+        Add {{ entity_label }}
+      </a>
+    </div>
   </div>
 
-  <!-- Search -->
-  <form hx-get="/admin/{{ entity_name }}/" hx-target="#list-table" hx-push-url="true">
-    <input name="search" type="search" placeholder="Search..."
-           value="{{ search }}"
-           hx-trigger="keyup changed delay:400ms, search"
-           hx-get="/admin/{{ entity_name }}/"
-           hx-target="#list-table" />
-  </form>
-
-  <!-- Bulk actions -->
-  {% if actions %}
-  <div x-show="selected.length > 0" style="margin-bottom:0.5rem;">
-    {% for action in actions %}
-    {% if action.target == "list" %}
-    <button
-      hx-post="/admin/{{ entity_name }}/action/{{ action.name }}"
-      hx-include="[name='selected_ids']"
-      hx-target="#flash"
-      {% if action.confirm %}
-      hx-confirm="{{ action.confirm }}"
-      {% endif %}>
-      {{ action.label }}
-    </button>
-    {% endif %}
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <!-- Table -->
   <div id="list-table">
     {% include "list_table.html" %}
   </div>
