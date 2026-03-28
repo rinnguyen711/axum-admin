@@ -50,6 +50,8 @@ pub struct ListContext {
     pub total_pages: u64,
     pub order_by: String,
     pub order_dir: String,
+    pub filter_fields: Vec<FieldContext>,
+    pub active_filters: HashMap<String, String>,
     pub flash_success: Option<String>,
     pub flash_error: Option<String>,
 }

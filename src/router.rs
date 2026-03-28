@@ -8,13 +8,14 @@ use crate::{
     },
 };
 use axum::{
-    extract::{Extension, Form, Path, Query},
+    extract::{Extension, Form, Path, Query, RawQuery},
     http::{header, header::LOCATION, StatusCode},
     middleware,
     response::{Html, IntoResponse, Redirect, Response},
     routing::{delete, get, post},
     Router,
 };
+use form_urlencoded;
 use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::HashMap, sync::Arc};
@@ -86,6 +87,65 @@ fn row_to_context(row: &HashMap<String, Value>) -> RowContext {
         .map(|(k, v)| (k.clone(), value_to_string(v)))
         .collect();
     RowContext { id, data }
+}
+
+fn parse_filters(raw_query: Option<&str>) -> HashMap<String, Value> {
+    let mut filters = HashMap::new();
+    if let Some(q) = raw_query {
+        for (k, v) in form_urlencoded::parse(q.as_bytes()) {
+            if let Some(col) = k.strip_prefix("filter[").and_then(|s| s.strip_suffix("]")) {
+                if !v.is_empty() {
+                    filters.insert(col.to_string(), Value::String(v.into_owned()));
+                }
+            }
+        }
+    }
+    filters
+}
+
+fn resolve_filter_fields<'a>(entity: &'a crate::entity::EntityAdmin) -> Vec<&'a crate::field::Field> {
+    // Auto-generated from filter_fields (resolved against entity.fields)
+    let mut result: Vec<&crate::field::Field> = entity
+        .filter_fields
+        .iter()
+        .filter_map(|name| entity.fields.iter().find(|f| &f.name == name))
+        .collect();
+
+    // Upsert entity.filters (custom) by name
+    for custom in &entity.filters {
+        if let Some(pos) = result.iter().position(|f| f.name == custom.name) {
+            result[pos] = custom;
+        } else {
+            result.push(custom);
+        }
+    }
+    result
+}
+
+fn filter_fields_to_context(fields: &[&crate::field::Field]) -> Vec<FieldContext> {
+    use crate::field::FieldType;
+    fields.iter().map(|f| {
+        let (type_str, options) = match &f.field_type {
+            FieldType::Select(opts) => ("Select".to_string(), opts.clone()),
+            FieldType::Boolean => ("Boolean".to_string(), vec![
+                ("true".to_string(), "Yes".to_string()),
+                ("false".to_string(), "No".to_string()),
+            ]),
+            _ => ("Text".to_string(), vec![]),
+        };
+        FieldContext {
+            name: f.name.clone(),
+            label: f.label.clone(),
+            field_type: type_str,
+            readonly: false,
+            hidden: false,
+            list_only: false,
+            form_only: false,
+            required: false,
+            help_text: None,
+            options,
+        }
+    }).collect()
 }
 
 async fn fields_to_context(fields: &[crate::field::Field]) -> Vec<FieldContext> {
@@ -277,8 +337,11 @@ async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) -> Html<Str
 async fn entity_list(
     Path(entity_name): Path<String>,
     Query(query): Query<ListQuery>,
+    RawQuery(raw_query): RawQuery,
+    headers: axum::http::HeaderMap,
     Extension(state): Extension<Arc<AdminAppState>>,
 ) -> Response {
+    let is_htmx = headers.contains_key("hx-request");
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
         Some(e) => e,
         None => {
@@ -296,6 +359,14 @@ async fn entity_list(
         }
     };
 
+    let active_filters_raw = parse_filters(raw_query.as_deref());
+    let active_filters: HashMap<String, String> = active_filters_raw
+        .iter()
+        .filter_map(|(k, v)| {
+            if let Value::String(s) = v { Some((k.clone(), s.clone())) } else { None }
+        })
+        .collect();
+
     let page = query.page.unwrap_or(1).max(1);
     let per_page = 20u64;
     let params = crate::adapter::ListParams {
@@ -303,7 +374,7 @@ async fn entity_list(
         per_page,
         search: query.search.clone(),
         search_columns: entity.search_fields.clone(),
-        filters: HashMap::new(),
+        filters: active_filters_raw,
         order_by: query.order_by.as_ref().map(|o| {
             let dir = if query.order_dir.as_deref() == Some("desc") {
                 crate::adapter::SortOrder::Desc
@@ -328,6 +399,9 @@ async fn entity_list(
             .map(|f| f.name.clone())
             .collect()
     };
+
+    let filter_field_defs = resolve_filter_fields(entity);
+    let filter_fields_ctx = filter_fields_to_context(&filter_field_defs);
 
     let ctx = ListContext {
         admin_title: state.title.clone(),
@@ -355,11 +429,14 @@ async fn entity_list(
         total_pages: total_pages.max(1),
         order_by: query.order_by.unwrap_or_default(),
         order_dir: query.order_dir.unwrap_or_else(|| "asc".to_string()),
+        filter_fields: filter_fields_ctx,
+        active_filters,
         flash_success: None,
         flash_error: None,
     };
 
-    Html(state.renderer.render("list.html", ctx)).into_response()
+    let template = if is_htmx { "list_table.html" } else { "list.html" };
+    Html(state.renderer.render(template, ctx)).into_response()
 }
 
 // --- Create ---
@@ -562,6 +639,7 @@ async fn entity_edit_submit(
 // --- Delete ---
 async fn entity_delete(
     Path((entity_name, id)): Path<(String, String)>,
+    headers: axum::http::HeaderMap,
     Extension(state): Extension<Arc<AdminAppState>>,
 ) -> Response {
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
@@ -577,16 +655,22 @@ async fn entity_delete(
 
     let id_val = Value::String(id.clone());
 
+    let is_htmx = headers.contains_key("hx-request");
+
     match adapter.delete(&id_val).await {
         Ok(_) => {
             if let Some(hook) = &entity.after_delete {
                 let _ = hook(&id_val);
             }
-            (
-                StatusCode::FOUND,
-                [(LOCATION, format!("/admin/{}/", entity_name))],
-            )
-                .into_response()
+            if is_htmx {
+                (StatusCode::OK, [("HX-Refresh", "true")], "").into_response()
+            } else {
+                (
+                    StatusCode::FOUND,
+                    [(LOCATION, format!("/admin/{}/", entity_name))],
+                )
+                    .into_response()
+            }
         }
         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
