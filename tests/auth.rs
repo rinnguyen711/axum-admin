@@ -1,5 +1,7 @@
+use axum::http::StatusCode;
 use axum_admin::auth::{AdminAuth, DefaultAdminAuth};
 use axum_admin::{AdminApp, AdminError};
+use axum_test::TestServer;
 
 #[tokio::test]
 async fn default_auth_correct_password() {
@@ -49,4 +51,56 @@ fn admin_app_with_auth() {
 
     assert!(app.auth.is_some());
     assert_eq!(app.title, "Test Admin");
+}
+
+#[tokio::test]
+async fn login_page_returns_200() {
+    let app = AdminApp::new()
+        .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
+        .into_router();
+
+    let server = TestServer::new(app).unwrap();
+    let resp = server.get("/admin/login").await;
+    assert_eq!(resp.status_code(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn admin_root_redirects_to_login_when_unauthenticated() {
+    let app = AdminApp::new()
+        .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
+        .into_router();
+
+    let server = TestServer::new(app).unwrap();
+    let resp = server.get("/admin/").await;
+    assert_eq!(resp.status_code(), StatusCode::FOUND);
+    assert!(resp.headers().get("location").unwrap().to_str().unwrap().contains("/admin/login"));
+}
+
+#[tokio::test]
+async fn login_post_correct_credentials_redirects_to_admin() {
+    let app = AdminApp::new()
+        .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
+        .into_router();
+
+    let server = TestServer::new(app).unwrap();
+    let resp = server
+        .post("/admin/login")
+        .form(&[("username", "admin"), ("password", "secret")])
+        .await;
+    assert_eq!(resp.status_code(), StatusCode::FOUND);
+    assert!(resp.headers().get("location").unwrap().to_str().unwrap().contains("/admin/"));
+}
+
+#[tokio::test]
+async fn login_post_wrong_credentials_returns_login_page() {
+    let app = AdminApp::new()
+        .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
+        .into_router();
+
+    let server = TestServer::new(app).unwrap();
+    let resp = server
+        .post("/admin/login")
+        .form(&[("username", "admin"), ("password", "wrong")])
+        .await;
+    assert_eq!(resp.status_code(), StatusCode::OK);
 }

@@ -4,6 +4,8 @@ pub mod adapter;
 pub mod entity;
 pub mod app;
 pub mod auth;
+pub mod middleware;
+pub mod router;
 
 pub use error::AdminError;
 pub use field::{Field, FieldType, Widget};
