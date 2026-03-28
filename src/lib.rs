@@ -1,3 +1,4 @@
+pub mod adapters;
 pub mod error;
 pub mod field;
 pub mod adapter;

@@ -20,6 +20,12 @@ minijinja = { version = "2", features = ["loader"] }
 
 [dev-dependencies]
 axum-test = "14"
+sea-orm = { version = "1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
 
 [features]
-seaorm = []
+seaorm = ["dep:sea-orm"]
+
+[dependencies.sea-orm]
+version = "1"
+features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"]
+optional = true
