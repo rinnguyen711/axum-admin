@@ -1,72 +1,120 @@
 {% extends "layout.html" %}
 {% block title %}{% if is_create %}New {{ entity_label }}{% else %}Edit {{ entity_label }}{% endif %} — {{ admin_title }}{% endblock %}
 {% block content %}
-<h2>{% if is_create %}New {{ entity_label }}{% else %}Edit #{{ record_id }}{% endif %}</h2>
 
-<form method="post" action="{% if is_create %}/admin/{{ entity_name }}/new{% else %}/admin/{{ entity_name }}/{{ record_id }}/{% endif %}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+<div class="mb-6">
+  <a href="/admin/{{ entity_name }}/"
+     class="text-sm text-zinc-500 hover:text-zinc-900 transition-colors flex items-center gap-1 w-fit">
+    <i class="fa-solid fa-chevron-left text-xs"></i>
+    Back to {{ entity_label }}
+  </a>
+</div>
 
-  {% for field in fields %}
-  {% if not field.hidden and not field.list_only %}
-  <label>
-    {{ field.label }}{% if field.required %} *{% endif %}
-    {% if field.field_type == "Text" %}
-    <input type="text" name="{{ field.name }}"
-           value="{{ values[field.name] | default('') }}"
-           {% if field.readonly %}readonly{% endif %}
-           {% if field.required %}required{% endif %} />
-    {% elif field.field_type == "TextArea" %}
-    <textarea name="{{ field.name }}"
-              {% if field.readonly %}readonly{% endif %}
-              {% if field.required %}required{% endif %}>{{ values[field.name] | default('') }}</textarea>
-    {% elif field.field_type == "Email" %}
-    <input type="email" name="{{ field.name }}"
-           value="{{ values[field.name] | default('') }}"
-           {% if field.readonly %}readonly{% endif %}
-           {% if field.required %}required{% endif %} />
-    {% elif field.field_type == "Password" %}
-    <input type="password" name="{{ field.name }}"
-           {% if field.readonly %}readonly{% endif %} />
-    {% elif field.field_type == "Number" %}
-    <input type="number" name="{{ field.name }}"
-           value="{{ values[field.name] | default('') }}"
-           {% if field.readonly %}readonly{% endif %}
-           {% if field.required %}required{% endif %} />
-    {% elif field.field_type == "Boolean" %}
-    <input type="checkbox" name="{{ field.name }}"
-           {% if values[field.name] %}checked{% endif %}
-           {% if field.readonly %}readonly{% endif %} />
-    {% elif field.field_type == "Select" %}
-    <select name="{{ field.name }}" {% if field.readonly %}disabled{% endif %}>
-      {% for opt in field.options %}
-      <option value="{{ opt.0 }}" {% if values[field.name] == opt.0 %}selected{% endif %}>{{ opt.1 }}</option>
-      {% endfor %}
-    </select>
-    {% elif field.field_type == "Date" %}
-    <input type="date" name="{{ field.name }}"
-           value="{{ values[field.name] | default('') }}"
-           {% if field.readonly %}readonly{% endif %} />
-    {% elif field.field_type == "DateTime" %}
-    <input type="datetime-local" name="{{ field.name }}"
-           value="{{ values[field.name] | default('') }}"
-           {% if field.readonly %}readonly{% endif %} />
-    {% elif field.field_type == "Json" %}
-    <textarea name="{{ field.name }}"
-              {% if field.readonly %}readonly{% endif %}>{{ values[field.name] | default('') }}</textarea>
-    {% endif %}
-    {% if field.help_text %}
-    <small>{{ field.help_text }}</small>
-    {% endif %}
-    {% if errors[field.name] %}
-    <div class="field-error">{{ errors[field.name] }}</div>
-    {% endif %}
-  </label>
-  {% endif %}
-  {% endfor %}
+<h1 class="text-2xl font-bold tracking-tight text-zinc-900 mb-6">
+  {% if is_create %}New {{ entity_label }}{% else %}Edit #{{ record_id }}{% endif %}
+</h1>
 
-  <div style="display:flex; gap:0.5rem; margin-top:1rem;">
-    <button type="submit">Save</button>
-    <a href="/admin/{{ entity_name }}/" role="button" class="secondary">Cancel</a>
-  </div>
-</form>
+<div class="bg-white rounded-md border border-zinc-200 shadow-sm p-8 max-w-2xl">
+  <form method="post"
+        action="{% if is_create %}/admin/{{ entity_name }}/new{% else %}/admin/{{ entity_name }}/{{ record_id }}/{% endif %}"
+        class="space-y-5">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+    {% for field in fields %}
+    {% if not field.hidden and not field.list_only %}
+    <div>
+      <label class="block text-sm font-medium text-zinc-700 mb-1">
+        {{ field.label }}{% if field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+
+      {% if field.field_type == "Text" %}
+      <input type="text" name="{{ field.name }}"
+             value="{{ values[field.name] | default('') }}"
+             {% if field.readonly %}readonly{% endif %}
+             {% if field.required %}required{% endif %}
+             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}" />
+
+      {% elif field.field_type == "TextArea" %}
+      <textarea name="{{ field.name }}" rows="4"
+                {% if field.readonly %}readonly{% endif %}
+                {% if field.required %}required{% endif %}
+                class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}">{{ values[field.name] | default('') }}</textarea>
+
+      {% elif field.field_type == "Email" %}
+      <input type="email" name="{{ field.name }}"
+             value="{{ values[field.name] | default('') }}"
+             {% if field.readonly %}readonly{% endif %}
+             {% if field.required %}required{% endif %}
+             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}" />
+
+      {% elif field.field_type == "Password" %}
+      <input type="password" name="{{ field.name }}"
+             {% if field.readonly %}readonly{% endif %}
+             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
+
+      {% elif field.field_type == "Number" %}
+      <input type="number" name="{{ field.name }}"
+             value="{{ values[field.name] | default('') }}"
+             {% if field.readonly %}readonly{% endif %}
+             {% if field.required %}required{% endif %}
+             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}" />
+
+      {% elif field.field_type == "Boolean" %}
+      <input type="checkbox" name="{{ field.name }}"
+             {% if values[field.name] %}checked{% endif %}
+             {% if field.readonly %}disabled{% endif %}
+             class="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black" />
+
+      {% elif field.field_type == "Select" %}
+      <select name="{{ field.name }}"
+              {% if field.readonly %}disabled{% endif %}
+              class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black bg-white">
+        {% for opt in field.options %}
+        <option value="{{ opt.0 }}" {% if values[field.name] == opt.0 %}selected{% endif %}>{{ opt.1 }}</option>
+        {% endfor %}
+      </select>
+
+      {% elif field.field_type == "Date" %}
+      <input type="date" name="{{ field.name }}"
+             value="{{ values[field.name] | default('') }}"
+             {% if field.readonly %}readonly{% endif %}
+             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
+
+      {% elif field.field_type == "DateTime" %}
+      <input type="datetime-local" name="{{ field.name }}"
+             value="{{ values[field.name] | default('') }}"
+             {% if field.readonly %}readonly{% endif %}
+             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
+
+      {% elif field.field_type == "Json" %}
+      <textarea name="{{ field.name }}" rows="6"
+                {% if field.readonly %}readonly{% endif %}
+                class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}">{{ values[field.name] | default('') }}</textarea>
+      {% endif %}
+
+      {% if field.help_text %}
+      <p class="text-xs text-zinc-500 mt-1">{{ field.help_text }}</p>
+      {% endif %}
+      {% if errors[field.name] %}
+      <p class="text-xs text-red-600 mt-1 flex items-center gap-1">
+        <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
+        {{ errors[field.name] }}
+      </p>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <div class="flex items-center gap-3 pt-4 border-t border-zinc-100">
+      <button type="submit"
+              class="px-6 py-2 bg-black text-white rounded-md text-sm font-semibold hover:bg-zinc-800 transition-colors">
+        Save
+      </button>
+      <a href="/admin/{{ entity_name }}/"
+         class="px-6 py-2 bg-zinc-100 text-zinc-700 rounded-md text-sm font-medium hover:bg-zinc-200 transition-colors">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
 {% endblock %}
