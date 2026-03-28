@@ -161,8 +161,8 @@ impl EntityAdmin {
         self
     }
 
-    pub fn filter_fields(mut self, fields: Vec<&str>) -> Self {
-        self.filter_fields = fields.iter().map(|s| s.to_string()).collect();
+    pub fn filter_fields(mut self, fields: Vec<String>) -> Self {
+        self.filter_fields = fields;
         self
     }
 

@@ -247,7 +247,7 @@ fn entity_admin_before_save_hook() {
 fn entity_admin_filter_fields_sets_names() {
     struct User;
     let entity = EntityAdmin::new::<User>("users")
-        .filter_fields(vec!["name", "email"]);
+        .filter_fields(vec!["name".to_string(), "email".to_string()]);
     assert_eq!(entity.filter_fields, vec!["name", "email"]);
 }
 
