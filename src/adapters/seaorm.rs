@@ -92,6 +92,10 @@ fn query_result_to_map(row: &QueryResult) -> HashMap<String, Value> {
     map
 }
 
+fn is_safe_column_name(name: &str) -> bool {
+    !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 pub struct SeaOrmAdapter<E: EntityTrait> {
     db: DatabaseConnection,
     search_columns: Vec<String>,
@@ -145,6 +149,9 @@ where
         let mut filter_cols: Vec<String> = params.filters.keys().cloned().collect();
         filter_cols.sort(); // deterministic order for tests
         for col in &filter_cols {
+            if !is_safe_column_name(col) {
+                continue;
+            }
             if let Some(val) = params.filters.get(col) {
                 let s = match val {
                     Value::String(s) if !s.is_empty() => s.clone(),
@@ -281,15 +288,22 @@ where
             }
         }
 
-        for (col, val) in &params.filters {
-            let s = match val {
-                Value::String(s) if !s.is_empty() => s.clone(),
-                Value::Number(n) => n.to_string(),
-                _ => continue,
-            };
-            query = query.filter(
-                Expr::col(sea_orm::sea_query::Alias::new(col.as_str())).eq(s)
-            );
+        let mut filter_cols: Vec<String> = params.filters.keys().cloned().collect();
+        filter_cols.sort();
+        for col in &filter_cols {
+            if !is_safe_column_name(col) {
+                continue;
+            }
+            if let Some(val) = params.filters.get(col) {
+                let s = match val {
+                    Value::String(s) if !s.is_empty() => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    _ => continue,
+                };
+                query = query.filter(
+                    Expr::col(sea_orm::sea_query::Alias::new(col.as_str())).eq(s)
+                );
+            }
         }
 
         query
