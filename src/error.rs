@@ -1,0 +1,20 @@
+use std::collections::HashMap;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum AdminError {
+    #[error("not found")]
+    NotFound,
+
+    #[error("validation error: {0:?}")]
+    ValidationError(HashMap<String, String>),
+
+    #[error("database error: {0}")]
+    DatabaseError(String),
+
+    #[error("unauthorized")]
+    Unauthorized,
+
+    #[error("error: {0}")]
+    Custom(String),
+}
