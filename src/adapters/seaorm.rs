@@ -48,7 +48,7 @@ use crate::{
 use async_trait::async_trait;
 use sea_orm::{
     sea_query::{Condition, Expr},
-    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IdenStatic, PaginatorTrait, QueryFilter,
     QueryResult, Statement, TryGetable,
 };
 use std::{collections::HashMap, marker::PhantomData};
@@ -283,7 +283,7 @@ where
     E::Column: ColumnTrait,
 {
     use sea_orm::sea_query::ColumnType;
-    use sea_orm::{IdenStatic, Iterable};
+    use sea_orm::Iterable;
     E::Column::iter()
         .map(|col| {
             let name = col.as_str();
