@@ -1,5 +1,11 @@
-use crate::{auth::AdminAuth, entity::EntityAdmin};
+use crate::{auth::AdminAuth, entity::EntityAdmin, render::AdminRenderer};
 use std::sync::Arc;
+
+pub struct AdminAppState {
+    pub title: String,
+    pub entities: Vec<EntityAdmin>,
+    pub renderer: AdminRenderer,
+}
 
 pub struct AdminApp {
     pub title: String,
@@ -36,6 +42,18 @@ impl AdminApp {
     pub fn auth(mut self, auth: Box<dyn AdminAuth>) -> Self {
         self.auth = Some(Arc::from(auth));
         self
+    }
+
+    pub(crate) fn into_state(self) -> (Arc<dyn AdminAuth>, Arc<AdminAppState>) {
+        let auth = self
+            .auth
+            .expect("AdminApp requires .auth() to be configured before calling into_router()");
+        let state = Arc::new(AdminAppState {
+            title: self.title,
+            entities: self.entities,
+            renderer: AdminRenderer::new(),
+        });
+        (auth, state)
     }
 }
 
