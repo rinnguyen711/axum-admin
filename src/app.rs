@@ -1,9 +1,11 @@
-use crate::entity::EntityAdmin;
+use crate::{auth::AdminAuth, entity::EntityAdmin};
+use std::sync::Arc;
 
 pub struct AdminApp {
     pub title: String,
     pub prefix: String,
     pub entities: Vec<EntityAdmin>,
+    pub auth: Option<Arc<dyn AdminAuth>>,
 }
 
 impl AdminApp {
@@ -12,6 +14,7 @@ impl AdminApp {
             title: "Admin".to_string(),
             prefix: "/admin".to_string(),
             entities: Vec::new(),
+            auth: None,
         }
     }
 
@@ -27,6 +30,11 @@ impl AdminApp {
 
     pub fn register(mut self, entity: EntityAdmin) -> Self {
         self.entities.push(entity);
+        self
+    }
+
+    pub fn auth(mut self, auth: Box<dyn AdminAuth>) -> Self {
+        self.auth = Some(Arc::from(auth));
         self
     }
 }

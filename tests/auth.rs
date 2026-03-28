@@ -1,5 +1,5 @@
 use axum_admin::auth::{AdminAuth, DefaultAdminAuth};
-use axum_admin::AdminError;
+use axum_admin::{AdminApp, AdminError};
 
 #[tokio::test]
 async fn default_auth_correct_password() {
@@ -39,4 +39,14 @@ async fn default_auth_invalid_session() {
     let auth = DefaultAdminAuth::new().add_user("admin", "secret123");
     let found = auth.get_session("nonexistent-session-id").await.unwrap();
     assert!(found.is_none());
+}
+
+#[test]
+fn admin_app_with_auth() {
+    let app = AdminApp::new()
+        .title("Test Admin")
+        .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "pass")));
+
+    assert!(app.auth.is_some());
+    assert_eq!(app.title, "Test Admin");
 }
