@@ -243,6 +243,35 @@ fn entity_admin_before_save_hook() {
     assert_eq!(data["name"], Value::from("alice"));
 }
 
+#[test]
+fn entity_admin_filter_fields_sets_names() {
+    struct User;
+    let entity = EntityAdmin::new::<User>("users")
+        .filter_fields(vec!["name", "email"]);
+    assert_eq!(entity.filter_fields, vec!["name", "email"]);
+}
+
+#[test]
+fn entity_admin_filter_upserts_by_name() {
+    struct User;
+    let entity = EntityAdmin::new::<User>("users")
+        .filter(Field::text("status"))
+        .filter(Field::text("status").required()); // second call replaces
+    assert_eq!(entity.filters.len(), 1);
+    assert!(entity.filters[0].required);
+}
+
+#[test]
+fn entity_admin_filter_appends_new_name() {
+    struct User;
+    let entity = EntityAdmin::new::<User>("users")
+        .filter(Field::text("status"))
+        .filter(Field::text("category_id"));
+    assert_eq!(entity.filters.len(), 2);
+    assert_eq!(entity.filters[0].name, "status");
+    assert_eq!(entity.filters[1].name, "category_id");
+}
+
 use axum_admin::AdminApp;
 
 #[test]

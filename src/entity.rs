@@ -87,6 +87,8 @@ pub struct EntityAdmin {
     pub fields: Vec<Field>,
     pub list_display: Vec<String>,
     pub search_fields: Vec<String>,
+    pub filter_fields: Vec<String>,
+    pub filters: Vec<Field>,
     pub actions: Vec<CustomAction>,
     pub adapter: Option<Box<dyn DataAdapter>>,
     pub before_save: Option<BeforeSaveHook>,
@@ -102,6 +104,8 @@ impl EntityAdmin {
             fields: Vec::new(),
             list_display: Vec::new(),
             search_fields: Vec::new(),
+            filter_fields: Vec::new(),
+            filters: Vec::new(),
             actions: Vec::new(),
             adapter: None,
             before_save: None,
@@ -123,6 +127,8 @@ impl EntityAdmin {
             fields,
             list_display: Vec::new(),
             search_fields: Vec::new(),
+            filter_fields: Vec::new(),
+            filters: Vec::new(),
             actions: Vec::new(),
             adapter: None,
             before_save: None,
@@ -152,6 +158,20 @@ impl EntityAdmin {
 
     pub fn search_fields(mut self, fields: Vec<String>) -> Self {
         self.search_fields = fields;
+        self
+    }
+
+    pub fn filter_fields(mut self, fields: Vec<&str>) -> Self {
+        self.filter_fields = fields.iter().map(|s| s.to_string()).collect();
+        self
+    }
+
+    pub fn filter(mut self, field: Field) -> Self {
+        if let Some(pos) = self.filters.iter().position(|f| f.name == field.name) {
+            self.filters[pos] = field;
+        } else {
+            self.filters.push(field);
+        }
         self
     }
 
