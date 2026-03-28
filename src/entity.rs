@@ -116,7 +116,11 @@ impl EntityAdmin {
     }
 
     pub fn field(mut self, field: Field) -> Self {
-        self.fields.push(field);
+        if let Some(pos) = self.fields.iter().position(|f| f.name == field.name) {
+            self.fields[pos] = field;
+        } else {
+            self.fields.push(field);
+        }
         self
     }
 

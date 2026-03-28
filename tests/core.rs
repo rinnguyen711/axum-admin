@@ -95,6 +95,29 @@ fn field_modifiers() {
     assert!(f.form_only);
 }
 
+#[test]
+fn field_upsert_replaces_by_name() {
+    struct User;
+    let entity = EntityAdmin::new::<User>("users")
+        .field(Field::text("name"))
+        .field(Field::text("name").required()); // second call with same name should replace
+
+    assert_eq!(entity.fields.len(), 1, "should have exactly one 'name' field");
+    assert!(entity.fields[0].required, "replaced field should be required");
+}
+
+#[test]
+fn field_upsert_appends_when_new_name() {
+    struct User;
+    let entity = EntityAdmin::new::<User>("users")
+        .field(Field::text("name"))
+        .field(Field::text("email"));
+
+    assert_eq!(entity.fields.len(), 2);
+    assert_eq!(entity.fields[0].name, "name");
+    assert_eq!(entity.fields[1].name, "email");
+}
+
 struct MockAdapter;
 
 #[async_trait]
