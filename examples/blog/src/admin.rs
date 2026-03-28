@@ -16,6 +16,7 @@ pub fn build(db: DatabaseConnection) -> Router {
                 .label("Categories")
                 .list_display(vec!["id".to_string(), "name".to_string()])
                 .search_fields(vec!["name".to_string()])
+                .filter_fields(vec!["name".to_string()])
                 .adapter(Box::new(SeaOrmAdapter::<category::Entity>::new(db.clone()))),
         )
         .register(
@@ -31,6 +32,7 @@ pub fn build(db: DatabaseConnection) -> Router {
                     )
                 )
                 .search_fields(vec!["title".to_string(), "body".to_string()])
+                .filter_fields(vec!["status".to_string(), "category_id".to_string()])
                 .adapter(Box::new(SeaOrmAdapter::<post::Entity>::new(db.clone()))),
         )
         .into_router()
