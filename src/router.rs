@@ -100,8 +100,10 @@ fn render_form_error(
     state: &AdminAppState,
     entity: &crate::entity::EntityAdmin,
     entity_name: &str,
+    record_id: &str,
     form: HashMap<String, Value>,
     err: crate::error::AdminError,
+    is_create: bool,
 ) -> Html<String> {
     let errors = match err {
         crate::error::AdminError::ValidationError(e) => e,
@@ -120,8 +122,8 @@ fn render_form_error(
         fields: fields_to_context(&entity.fields),
         values,
         errors,
-        is_create: true,
-        record_id: String::new(),
+        is_create,
+        record_id: record_id.to_string(),
         csrf_token: "todo-csrf".to_string(),
         flash_success: None,
         flash_error: None,
@@ -357,7 +359,8 @@ async fn entity_create_submit(
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, data, e).into_response();
+            return render_form_error(&state, entity, &entity_name, "", data, e, true)
+                .into_response();
         }
     }
 
@@ -458,12 +461,31 @@ async fn entity_edit_submit(
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, data, e).into_response();
+            return render_form_error(&state, entity, &entity_name, &id, data, e, false)
+                .into_response();
         }
     }
 
     match adapter.update(&Value::String(id.clone()), data).await {
         Ok(_) => Redirect::to(&format!("/admin/{}/", entity_name)).into_response(),
+        Err(crate::error::AdminError::ValidationError(errs)) => {
+            let ctx = FormContext {
+                admin_title: state.title.clone(),
+                entities: entity_refs(&state),
+                current_entity: entity_name.clone(),
+                entity_name: entity_name.clone(),
+                entity_label: entity.label.clone(),
+                fields: fields_to_context(&entity.fields),
+                values: form.into_iter().collect(),
+                errors: errs,
+                is_create: false,
+                record_id: id,
+                csrf_token: "todo-csrf".to_string(),
+                flash_success: None,
+                flash_error: None,
+            };
+            Html(state.renderer.render("form.html", ctx)).into_response()
+        }
         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
@@ -486,16 +508,17 @@ async fn entity_delete(
 
     let id_val = Value::String(id.clone());
 
-    if let Some(hook) = &entity.after_delete {
-        let _ = hook(&id_val);
-    }
-
     match adapter.delete(&id_val).await {
-        Ok(_) => (
-            StatusCode::FOUND,
-            [(LOCATION, format!("/admin/{}/", entity_name))],
-        )
-            .into_response(),
+        Ok(_) => {
+            if let Some(hook) = &entity.after_delete {
+                let _ = hook(&id_val);
+            }
+            (
+                StatusCode::FOUND,
+                [(LOCATION, format!("/admin/{}/", entity_name))],
+            )
+                .into_response()
+        }
         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
