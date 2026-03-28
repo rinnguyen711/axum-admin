@@ -123,35 +123,48 @@ where
         let table = sea_orm::EntityName::table_name(&E::default()).to_string();
 
         let mut bind_vals: Vec<SeaValue> = Vec::new();
+        let mut where_parts: Vec<String> = Vec::new();
 
-        // Prefer search_columns from params (populated from entity.search_fields),
-        // fall back to the adapter-level search_columns set via .search_columns().
         let search_cols = if !params.search_columns.is_empty() {
             &params.search_columns
         } else {
             &self.search_columns
         };
 
-        let where_clause = match &params.search {
-            Some(search) if !search.is_empty() && !search_cols.is_empty() => {
+        if let Some(ref search) = params.search {
+            if !search.is_empty() && !search_cols.is_empty() {
                 let clauses: Vec<String> =
                     search_cols.iter().map(|c| format!("{} LIKE ?", c)).collect();
                 for _ in search_cols {
-                    bind_vals
-                        .push(SeaValue::String(Some(Box::new(format!("%{}%", search)))));
+                    bind_vals.push(SeaValue::String(Some(Box::new(format!("%{}%", search)))));
                 }
-                format!(" WHERE {}", clauses.join(" OR "))
+                where_parts.push(format!("({})", clauses.join(" OR ")));
             }
-            _ => String::new(),
+        }
+
+        let mut filter_cols: Vec<String> = params.filters.keys().cloned().collect();
+        filter_cols.sort(); // deterministic order for tests
+        for col in &filter_cols {
+            if let Some(val) = params.filters.get(col) {
+                let s = match val {
+                    Value::String(s) if !s.is_empty() => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    _ => continue,
+                };
+                where_parts.push(format!("{} = ?", col));
+                bind_vals.push(SeaValue::String(Some(Box::new(s))));
+            }
+        }
+
+        let where_clause = if where_parts.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", where_parts.join(" AND "))
         };
 
         let order_clause = match &params.order_by {
-            Some((col, crate::adapter::SortOrder::Desc)) => {
-                format!(" ORDER BY {} DESC", col)
-            }
-            Some((col, crate::adapter::SortOrder::Asc)) => {
-                format!(" ORDER BY {} ASC", col)
-            }
+            Some((col, crate::adapter::SortOrder::Desc)) => format!(" ORDER BY {} DESC", col),
+            Some((col, crate::adapter::SortOrder::Asc)) => format!(" ORDER BY {} ASC", col),
             None => String::new(),
         };
 
@@ -266,6 +279,17 @@ where
                 }
                 query = query.filter(cond);
             }
+        }
+
+        for (col, val) in &params.filters {
+            let s = match val {
+                Value::String(s) if !s.is_empty() => s.clone(),
+                Value::Number(n) => n.to_string(),
+                _ => continue,
+            };
+            query = query.filter(
+                Expr::col(sea_orm::sea_query::Alias::new(col.as_str())).eq(s)
+            );
         }
 
         query

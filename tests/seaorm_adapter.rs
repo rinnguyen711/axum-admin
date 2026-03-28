@@ -223,6 +223,56 @@ mod integration {
         assert_eq!(rows[2]["name"], serde_json::json!("Alpha"));
     }
 
+    #[tokio::test]
+    async fn list_with_filters_returns_matching_rows() {
+        let db = setup_db().await;
+        let adapter = SeaOrmAdapter::<Entity>::new(db.clone());
+
+        // Insert an extra item
+        let data = HashMap::from([("name".to_string(), serde_json::json!("Zeta"))]);
+        adapter.create(data).await.unwrap();
+
+        let params = ListParams {
+            filters: HashMap::from([
+                ("name".to_string(), serde_json::json!("Alpha"))
+            ]),
+            ..ListParams::default()
+        };
+        let rows = adapter.list(params).await.unwrap();
+        assert_eq!(rows.len(), 1, "filter should return only matching row");
+        assert_eq!(rows[0]["name"], serde_json::json!("Alpha"));
+    }
+
+    #[tokio::test]
+    async fn count_with_filters_returns_filtered_count() {
+        let db = setup_db().await;
+        let adapter = SeaOrmAdapter::<Entity>::new(db.clone());
+
+        let params = ListParams {
+            filters: HashMap::from([
+                ("name".to_string(), serde_json::json!("Beta"))
+            ]),
+            ..ListParams::default()
+        };
+        let count = adapter.count(&params).await.unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn list_with_empty_filter_value_ignored() {
+        let db = setup_db().await;
+        let adapter = SeaOrmAdapter::<Entity>::new(db.clone());
+
+        let params = ListParams {
+            filters: HashMap::from([
+                ("name".to_string(), serde_json::Value::String(String::new()))
+            ]),
+            ..ListParams::default()
+        };
+        let rows = adapter.list(params).await.unwrap();
+        assert_eq!(rows.len(), 3, "empty filter value should not restrict results");
+    }
+
     #[test]
     fn seaorm_fields_for_basic_entity() {
         use axum_admin::adapters::seaorm::seaorm_fields_for;
