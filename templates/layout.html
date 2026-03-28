@@ -1,37 +1,99 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}{{ admin_title }}{% endblock %}</title>
-  <link rel="stylesheet" href="/admin/_static/pico.min.css" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            "surface":                   "#fbf8fc",
+            "on-surface":                "#1b1b1e",
+            "on-surface-variant":        "#474747",
+            "surface-container":         "#f0edf1",
+            "surface-container-low":     "#f6f2f7",
+            "surface-container-high":    "#eae7eb",
+            "surface-container-highest": "#e4e1e6",
+            "surface-container-lowest":  "#ffffff",
+            "outline-variant":           "#c6c6c6",
+            "primary":                   "#000000",
+            "on-primary":                "#ffffff",
+            "error":                     "#ba1a1a",
+          },
+        },
+      },
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="/admin/_static/admin.css" />
   <script defer src="/admin/_static/alpine.min.js"></script>
   <script src="/admin/_static/htmx.min.js"></script>
 </head>
-<body x-data="{ sidebarOpen: true }">
-  <div class="admin-layout">
-    <aside class="admin-sidebar" x-show="sidebarOpen">
-      <strong>{{ admin_title }}</strong>
-      <nav>
-        <a href="/admin/">Dashboard</a>
-        {% for entity in entities %}
-        <a href="/admin/{{ entity.name }}/"
-           {% if current_entity == entity.name %}class="active"{% endif %}>
-          {{ entity.label }}
-        </a>
-        {% endfor %}
-      </nav>
-      <hr />
-      <a href="/admin/logout">Logout</a>
-    </aside>
-    <main class="admin-main">
+<body class="bg-surface text-on-surface antialiased flex h-screen overflow-hidden font-sans">
+
+  <!-- Sidebar -->
+  <aside class="w-64 shrink-0 bg-zinc-50 border-r border-zinc-200 flex flex-col py-6 px-4 h-screen overflow-y-auto">
+    <div class="flex items-center gap-3 px-2 mb-8">
+      <div class="w-8 h-8 bg-black rounded-md flex items-center justify-center">
+        <i class="fa-solid fa-bolt text-white text-xs"></i>
+      </div>
+      <span class="text-sm font-bold tracking-tight text-zinc-900">{{ admin_title }}</span>
+    </div>
+
+    <nav class="flex-1 space-y-1">
+      {% for entity in entities %}
+      <a href="/admin/{{ entity.name }}/"
+         class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+                {% if current_entity == entity.name %}bg-zinc-200/60 text-zinc-900 font-semibold{% else %}text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100{% endif %}">
+        <i class="fa-solid fa-layer-group text-xs w-4"></i>
+        {{ entity.label }}
+      </a>
+      {% endfor %}
+    </nav>
+
+    <div class="pt-4 border-t border-zinc-200 space-y-1">
+      <a href="/admin/logout"
+         class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors">
+        <i class="fa-solid fa-right-from-bracket text-xs w-4"></i>
+        Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 h-14 border-b border-zinc-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 shrink-0">
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-full bg-zinc-900 flex items-center justify-center text-white text-xs font-bold">A</div>
+      </div>
+    </header>
+
+    <!-- Flash messages -->
+    <div id="flash" class="px-8">
       {% if flash_success %}
-      <div class="flash-success" id="flash">{{ flash_success }}</div>
+      <div class="mt-4 px-4 py-3 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-500"></i>
+        {{ flash_success }}
+      </div>
       {% endif %}
       {% if flash_error %}
-      <div class="flash-error" id="flash">{{ flash_error }}</div>
+      <div class="mt-4 px-4 py-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm font-medium flex items-center gap-2">
+        <i class="fa-solid fa-circle-exclamation text-red-500"></i>
+        {{ flash_error }}
+      </div>
       {% endif %}
+    </div>
+
+    <!-- Page content -->
+    <main class="flex-1 overflow-y-auto p-8">
       {% block content %}{% endblock %}
     </main>
   </div>
