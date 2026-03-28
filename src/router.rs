@@ -5,7 +5,7 @@ use crate::{
 };
 use axum::{
     extract::{Extension, Form},
-    http::{header::LOCATION, StatusCode},
+    http::{header, header::LOCATION, StatusCode},
     middleware,
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
@@ -69,6 +69,34 @@ async fn admin_home() -> Html<&'static str> {
     Html("<h1>Admin Dashboard</h1>")
 }
 
+async fn serve_htmx() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "application/javascript")],
+        include_str!("../static/htmx.min.js"),
+    )
+}
+
+async fn serve_alpine() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "application/javascript")],
+        include_str!("../static/alpine.min.js"),
+    )
+}
+
+async fn serve_pico_css() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css")],
+        include_str!("../static/pico.min.css"),
+    )
+}
+
+async fn serve_admin_css() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css")],
+        include_str!("../static/admin.css"),
+    )
+}
+
 impl AdminApp {
     pub fn into_router(self) -> Router {
         let auth: Arc<dyn AdminAuth> = self
@@ -83,6 +111,10 @@ impl AdminApp {
         Router::new()
             .route("/admin/login", get(login_page))
             .route("/admin/login", post(login_submit))
+            .route("/admin/_static/htmx.min.js", get(serve_htmx))
+            .route("/admin/_static/alpine.min.js", get(serve_alpine))
+            .route("/admin/_static/pico.min.css", get(serve_pico_css))
+            .route("/admin/_static/admin.css", get(serve_admin_css))
             .merge(protected)
             .layer(Extension(auth))
             .layer(CookieManagerLayer::new())
