@@ -105,7 +105,7 @@ fn fields_to_context(fields: &[crate::field::Field]) -> Vec<FieldContext> {
                 FieldType::DateTime => ("DateTime".to_string(), vec![]),
                 FieldType::Json => ("Json".to_string(), vec![]),
                 FieldType::Select(opts) => ("Select".to_string(), opts.clone()),
-                FieldType::Relation { .. } => ("Text".to_string(), vec![]),
+                FieldType::ForeignKey { .. } => ("ForeignKey".to_string(), vec![]),
                 FieldType::Custom(_) => ("Text".to_string(), vec![]),
             };
             FieldContext {

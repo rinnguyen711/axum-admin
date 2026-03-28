@@ -14,7 +14,6 @@ impl fmt::Debug for dyn Widget {
     }
 }
 
-#[derive(Debug)]
 pub enum FieldType {
     Text,
     TextArea,
@@ -26,12 +25,37 @@ pub enum FieldType {
     Date,
     DateTime,
     Select(Vec<(String, String)>),
-    Relation {
-        entity: String,
-        display_field: String,
+    ForeignKey {
+        adapter: Box<dyn crate::adapter::DataAdapter>,
+        value_field: String,
+        label_field: String,
+        limit: Option<u64>,
+        order_by: Option<String>,
     },
     Json,
     Custom(Box<dyn Widget>),
+}
+
+impl std::fmt::Debug for FieldType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldType::Text => write!(f, "Text"),
+            FieldType::TextArea => write!(f, "TextArea"),
+            FieldType::Email => write!(f, "Email"),
+            FieldType::Password => write!(f, "Password"),
+            FieldType::Number => write!(f, "Number"),
+            FieldType::Float => write!(f, "Float"),
+            FieldType::Boolean => write!(f, "Boolean"),
+            FieldType::Date => write!(f, "Date"),
+            FieldType::DateTime => write!(f, "DateTime"),
+            FieldType::Select(opts) => write!(f, "Select({} options)", opts.len()),
+            FieldType::ForeignKey { value_field, label_field, limit, order_by, .. } => {
+                write!(f, "ForeignKey {{ value_field: {value_field:?}, label_field: {label_field:?}, limit: {limit:?}, order_by: {order_by:?} }}")
+            }
+            FieldType::Json => write!(f, "Json"),
+            FieldType::Custom(_) => write!(f, "Custom(..)"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -86,11 +110,22 @@ impl Field {
         Self::new(name, FieldType::Select(options))
     }
 
-    pub fn relation(name: &str, entity: &str, display_field: &str) -> Self {
-        Self::new(name, FieldType::Relation {
-            entity: entity.to_string(),
-            display_field: display_field.to_string(),
-        })
+    pub fn foreign_key(
+        name: &str,
+        label: &str,
+        adapter: Box<dyn crate::adapter::DataAdapter>,
+        value_field: &str,
+        label_field: &str,
+    ) -> Self {
+        let mut f = Self::new(name, FieldType::ForeignKey {
+            adapter,
+            value_field: value_field.to_string(),
+            label_field: label_field.to_string(),
+            limit: None,
+            order_by: None,
+        });
+        f.label = label.to_string();
+        f
     }
 
     pub fn custom(name: &str, widget: Box<dyn Widget>) -> Self {
@@ -105,4 +140,18 @@ impl Field {
     pub fn form_only(mut self) -> Self { self.form_only = true; self }
     pub fn required(mut self) -> Self { self.required = true; self }
     pub fn help_text(mut self, text: &str) -> Self { self.help_text = Some(text.to_string()); self }
+
+    pub fn fk_limit(mut self, n: u64) -> Self {
+        if let FieldType::ForeignKey { ref mut limit, .. } = self.field_type {
+            *limit = Some(n);
+        }
+        self
+    }
+
+    pub fn fk_order_by(mut self, field: &str) -> Self {
+        if let FieldType::ForeignKey { ref mut order_by, .. } = self.field_type {
+            *order_by = Some(field.to_string());
+        }
+        self
+    }
 }

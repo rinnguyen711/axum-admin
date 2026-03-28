@@ -58,6 +58,29 @@ fn field_builder_select() {
 }
 
 #[test]
+fn field_foreign_key_constructor() {
+    let adapter = Box::new(MockAdapter);
+    let f = Field::foreign_key("category_id", "Category", adapter, "id", "name");
+    assert_eq!(f.name, "category_id");
+    assert_eq!(f.label, "Category");
+    assert!(matches!(f.field_type, FieldType::ForeignKey { .. }));
+    assert!(!f.required);
+}
+
+#[test]
+fn field_foreign_key_modifiers() {
+    let f = Field::foreign_key("cat_id", "Cat", Box::new(MockAdapter), "id", "name")
+        .fk_limit(50)
+        .fk_order_by("name");
+    if let FieldType::ForeignKey { limit, order_by, .. } = f.field_type {
+        assert_eq!(limit, Some(50));
+        assert_eq!(order_by, Some("name".to_string()));
+    } else {
+        panic!("expected ForeignKey variant");
+    }
+}
+
+#[test]
 fn field_modifiers() {
     let f = Field::number("age").readonly();
     assert!(f.readonly);
