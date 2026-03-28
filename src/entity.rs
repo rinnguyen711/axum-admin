@@ -110,6 +110,27 @@ impl EntityAdmin {
         }
     }
 
+    #[cfg(feature = "seaorm")]
+    pub fn from_entity<E>(name: &str) -> Self
+    where
+        E: sea_orm::EntityTrait,
+        E::Column: sea_orm::ColumnTrait,
+    {
+        let fields = crate::adapters::seaorm::seaorm_fields_for::<E>();
+        Self {
+            entity_name: name.to_string(),
+            label: crate::field::default_label(name),
+            fields,
+            list_display: Vec::new(),
+            search_fields: Vec::new(),
+            actions: Vec::new(),
+            adapter: None,
+            before_save: None,
+            after_delete: None,
+            _marker: PhantomData,
+        }
+    }
+
     pub fn label(mut self, label: &str) -> Self {
         self.label = label.to_string();
         self

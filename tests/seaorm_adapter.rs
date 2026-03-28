@@ -241,4 +241,35 @@ mod integration {
         assert!(!name_field.readonly, "name should not be readonly");
         assert!(!name_field.required, "name should not be required by default");
     }
+
+    #[test]
+    fn entity_admin_from_entity_auto_fields() {
+        use axum_admin::EntityAdmin;
+        use axum_admin::FieldType;
+        // Uses existing Entity (id: i32, name: String)
+        let entity = EntityAdmin::from_entity::<Entity>("items");
+
+        assert_eq!(entity.entity_name, "items");
+        assert_eq!(entity.label, "Items");
+        assert_eq!(entity.fields.len(), 2);
+
+        let id_field = entity.fields.iter().find(|f| f.name == "id").unwrap();
+        assert!(id_field.readonly);
+        assert!(matches!(id_field.field_type, FieldType::Number));
+
+        let name_field = entity.fields.iter().find(|f| f.name == "name").unwrap();
+        assert!(matches!(name_field.field_type, FieldType::Text));
+    }
+
+    #[test]
+    fn entity_admin_from_entity_field_override() {
+        use axum_admin::{EntityAdmin, Field};
+        // Override 'name' field with required text
+        let entity = EntityAdmin::from_entity::<Entity>("items")
+            .field(Field::text("name").required());
+
+        assert_eq!(entity.fields.len(), 2, "should still be 2 fields after override");
+        let name_field = entity.fields.iter().find(|f| f.name == "name").unwrap();
+        assert!(name_field.required, "overridden field should be required");
+    }
 }
