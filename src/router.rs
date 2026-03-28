@@ -235,18 +235,27 @@ async fn logout(cookies: Cookies) -> Redirect {
 
 // --- Dashboard home ---
 async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) -> Html<String> {
-    Html(format!(
-        r#"<!DOCTYPE html><html><body><h1>{} Admin</h1><ul>{}</ul></body></html>"#,
-        state.title,
-        state
-            .entities
-            .iter()
-            .map(|e| format!(
-                r#"<li><a href="/admin/{0}/">{1}</a></li>"#,
-                e.entity_name, e.label
-            ))
-            .collect::<String>()
-    ))
+    use crate::render::context::EntityRef;
+    use serde::Serialize;
+    #[derive(Serialize)]
+    struct HomeContext {
+        admin_title: String,
+        entities: Vec<EntityRef>,
+        current_entity: String,
+        flash_success: Option<String>,
+        flash_error: Option<String>,
+    }
+    let ctx = HomeContext {
+        admin_title: state.title.clone(),
+        entities: state.entities.iter().map(|e| EntityRef {
+            name: e.entity_name.clone(),
+            label: e.label.clone(),
+        }).collect(),
+        current_entity: String::new(),
+        flash_success: None,
+        flash_error: None,
+    };
+    Html(state.renderer.render("home.html", ctx))
 }
 
 // --- List ---

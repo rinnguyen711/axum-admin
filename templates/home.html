@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard — {{ admin_title }}{% endblock %}
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-3xl font-bold tracking-tight text-zinc-900">Dashboard</h1>
+  <p class="text-sm text-zinc-500 mt-1">Welcome to {{ admin_title }}.</p>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for entity in entities %}
+  <a href="/admin/{{ entity.name }}/"
+     class="bg-white rounded-md border border-zinc-200 shadow-sm p-6 flex items-center gap-4 hover:shadow-md hover:border-zinc-300 transition-all group">
+    <div class="w-10 h-10 bg-zinc-100 rounded-md flex items-center justify-center group-hover:bg-zinc-200 transition-colors shrink-0">
+      <i class="fa-solid fa-layer-group text-zinc-500 text-sm"></i>
+    </div>
+    <div>
+      <p class="text-sm font-semibold text-zinc-900">{{ entity.label }}</p>
+      <p class="text-xs text-zinc-500 mt-0.5">Manage {{ entity.label | lower }}</p>
+    </div>
+    <i class="fa-solid fa-chevron-right text-zinc-300 text-xs ml-auto group-hover:text-zinc-500 transition-colors"></i>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

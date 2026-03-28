@@ -31,6 +31,7 @@ impl AdminRenderer {
             include_str!("../../templates/form.html").to_string(),
         ).unwrap();
         env.add_template_owned("flash.html", include_str!("../../templates/flash.html").to_string()).unwrap();
+        env.add_template_owned("home.html", include_str!("../../templates/home.html").to_string()).unwrap();
 
         Self { env }
     }
