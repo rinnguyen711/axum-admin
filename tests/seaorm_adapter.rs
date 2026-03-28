@@ -222,4 +222,23 @@ mod integration {
         assert_eq!(rows[1]["name"], serde_json::json!("Beta"));
         assert_eq!(rows[2]["name"], serde_json::json!("Alpha"));
     }
+
+    #[test]
+    fn seaorm_fields_for_basic_entity() {
+        use axum_admin::adapters::seaorm::seaorm_fields_for;
+        use axum_admin::FieldType;
+        // Uses the existing `Entity` defined in this file (id: i32, name: String)
+        let fields = seaorm_fields_for::<Entity>();
+
+        assert_eq!(fields.len(), 2, "should generate one field per column");
+
+        let id_field = fields.iter().find(|f| f.name == "id").expect("id field missing");
+        assert!(matches!(id_field.field_type, FieldType::Number), "id should be Number");
+        assert!(id_field.readonly, "id should be readonly");
+
+        let name_field = fields.iter().find(|f| f.name == "name").expect("name field missing");
+        assert!(matches!(name_field.field_type, FieldType::Text), "name should be Text");
+        assert!(!name_field.readonly, "name should not be readonly");
+        assert!(!name_field.required, "name should not be required by default");
+    }
 }

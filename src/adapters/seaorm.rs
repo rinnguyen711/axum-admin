@@ -48,8 +48,8 @@ use crate::{
 use async_trait::async_trait;
 use sea_orm::{
     sea_query::{Condition, Expr},
-    ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryResult,
-    Statement, TryGetable,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryResult, Statement, TryGetable,
 };
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -273,4 +273,45 @@ where
             .await
             .map_err(|e| AdminError::DatabaseError(e.to_string()))
     }
+}
+
+use crate::field::{Field, FieldType};
+
+pub fn seaorm_fields_for<E>() -> Vec<Field>
+where
+    E: EntityTrait,
+    E::Column: ColumnTrait,
+{
+    use sea_orm::sea_query::ColumnType;
+    use sea_orm::{IdenStatic, Iterable};
+    E::Column::iter()
+        .map(|col| {
+            let name = col.as_str();
+            let col_def = col.def();
+            let field_type = match col_def.get_column_type() {
+                ColumnType::Char(_) | ColumnType::String(_) | ColumnType::Text => FieldType::Text,
+                ColumnType::TinyInteger
+                | ColumnType::SmallInteger
+                | ColumnType::Integer
+                | ColumnType::BigInteger
+                | ColumnType::TinyUnsigned
+                | ColumnType::SmallUnsigned
+                | ColumnType::Unsigned
+                | ColumnType::BigUnsigned => FieldType::Number,
+                ColumnType::Float | ColumnType::Double | ColumnType::Decimal(_) => FieldType::Float,
+                ColumnType::Boolean => FieldType::Boolean,
+                ColumnType::Date => FieldType::Date,
+                ColumnType::DateTime
+                | ColumnType::Timestamp
+                | ColumnType::TimestampWithTimeZone => FieldType::DateTime,
+                ColumnType::Json | ColumnType::JsonBinary => FieldType::Json,
+                _ => FieldType::Text,
+            };
+            let mut f = Field::new(name, field_type);
+            if name == "id" {
+                f = f.readonly();
+            }
+            f
+        })
+        .collect()
 }

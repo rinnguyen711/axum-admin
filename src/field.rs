@@ -81,7 +81,7 @@ pub(crate) fn default_label(name: &str) -> String {
 }
 
 impl Field {
-    fn new(name: &str, field_type: FieldType) -> Self {
+    pub(crate) fn new(name: &str, field_type: FieldType) -> Self {
         Self {
             label: default_label(name),
             name: name.to_string(),
