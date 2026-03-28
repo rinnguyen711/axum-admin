@@ -48,8 +48,8 @@ use crate::{
 use async_trait::async_trait;
 use sea_orm::{
     sea_query::{Condition, Expr},
-    ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryResult, Statement, TryGetable,
+    ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryResult,
+    Statement, TryGetable,
 };
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -122,35 +122,48 @@ where
     async fn list(&self, params: ListParams) -> Result<Vec<HashMap<String, Value>>, AdminError> {
         let table = sea_orm::EntityName::table_name(&E::default()).to_string();
 
-        let mut where_clause = String::new();
         let mut bind_vals: Vec<SeaValue> = Vec::new();
 
-        if let Some(ref search) = params.search {
-            if !self.search_columns.is_empty() && !search.is_empty() {
-                let clauses: Vec<String> = self
-                    .search_columns
-                    .iter()
-                    .map(|c| format!("{} LIKE ?", c))
-                    .collect();
-                where_clause = format!(" WHERE {}", clauses.join(" OR "));
-                for _ in &self.search_columns {
-                    bind_vals.push(SeaValue::String(Some(Box::new(format!(
-                        "%{}%",
-                        search
-                    )))));
-                }
-            }
-        }
+        // Prefer search_columns from params (populated from entity.search_fields),
+        // fall back to the adapter-level search_columns set via .search_columns().
+        let search_cols = if !params.search_columns.is_empty() {
+            &params.search_columns
+        } else {
+            &self.search_columns
+        };
 
-        let offset = (params.page.saturating_sub(1)) * params.per_page;
+        let where_clause = match &params.search {
+            Some(search) if !search.is_empty() && !search_cols.is_empty() => {
+                let clauses: Vec<String> =
+                    search_cols.iter().map(|c| format!("{} LIKE ?", c)).collect();
+                for _ in search_cols {
+                    bind_vals
+                        .push(SeaValue::String(Some(Box::new(format!("%{}%", search)))));
+                }
+                format!(" WHERE {}", clauses.join(" OR "))
+            }
+            _ => String::new(),
+        };
+
+        let order_clause = match &params.order_by {
+            Some((col, crate::adapter::SortOrder::Desc)) => {
+                format!(" ORDER BY {} DESC", col)
+            }
+            Some((col, crate::adapter::SortOrder::Asc)) => {
+                format!(" ORDER BY {} ASC", col)
+            }
+            None => String::new(),
+        };
+
+        let offset = params.page.saturating_sub(1) * params.per_page;
         let sql = format!(
-            "SELECT * FROM {}{} LIMIT ? OFFSET ?",
-            table, where_clause
+            "SELECT * FROM {}{}{} LIMIT ? OFFSET ?",
+            table, where_clause, order_clause
         );
         bind_vals.push(SeaValue::BigInt(Some(params.per_page as i64)));
         bind_vals.push(SeaValue::BigInt(Some(offset as i64)));
 
-        let stmt = Statement::from_sql_and_values(DbBackend::Sqlite, &sql, bind_vals);
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, bind_vals);
         let rows = self
             .db
             .query_all(stmt)
@@ -164,7 +177,7 @@ where
         let table = sea_orm::EntityName::table_name(&E::default()).to_string();
         let id_val = json_to_sea_value(id);
         let sql = format!("SELECT * FROM {} WHERE id = ? LIMIT 1", table);
-        let stmt = Statement::from_sql_and_values(DbBackend::Sqlite, &sql, [id_val]);
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, [id_val]);
         let result = self
             .db
             .query_one(stmt)
@@ -189,7 +202,7 @@ where
             .iter()
             .map(|k| json_to_sea_value(data.get(k).unwrap()))
             .collect();
-        let stmt = Statement::from_sql_and_values(DbBackend::Sqlite, &sql, vals);
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, vals);
         let res = self
             .db
             .execute(stmt)
@@ -213,7 +226,7 @@ where
             .collect();
         vals.push(json_to_sea_value(id));
         let sql = format!("UPDATE {} SET {} WHERE id = ?", table, set_clause);
-        let stmt = Statement::from_sql_and_values(DbBackend::Sqlite, &sql, vals);
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, vals);
         self.db
             .execute(stmt)
             .await
@@ -225,7 +238,7 @@ where
         let table = sea_orm::EntityName::table_name(&E::default()).to_string();
         let id_val = json_to_sea_value(id);
         let sql = format!("DELETE FROM {} WHERE id = ?", table);
-        let stmt = Statement::from_sql_and_values(DbBackend::Sqlite, &sql, [id_val]);
+        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, [id_val]);
         self.db
             .execute(stmt)
             .await
@@ -236,10 +249,16 @@ where
     async fn count(&self, params: &ListParams) -> Result<u64, AdminError> {
         let mut query = E::find();
 
+        let search_cols = if !params.search_columns.is_empty() {
+            &params.search_columns
+        } else {
+            &self.search_columns
+        };
+
         if let Some(ref search) = params.search {
-            if !self.search_columns.is_empty() && !search.is_empty() {
+            if !search_cols.is_empty() && !search.is_empty() {
                 let mut cond = Condition::any();
-                for col_name in &self.search_columns {
+                for col_name in search_cols {
                     cond = cond.add(
                         Expr::col(sea_orm::sea_query::Alias::new(col_name.as_str()))
                             .like(format!("%{}%", search)),

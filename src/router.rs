@@ -20,6 +20,34 @@ use serde_json::Value;
 use std::{collections::HashMap, sync::Arc};
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 
+const CSRF_COOKIE: &str = "axum_admin_csrf";
+
+fn generate_csrf_token() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
+/// Returns the current CSRF token from the cookie, creating one if absent.
+fn get_or_create_csrf(cookies: &Cookies) -> String {
+    if let Some(c) = cookies.get(CSRF_COOKIE) {
+        return c.value().to_string();
+    }
+    let token = generate_csrf_token();
+    let mut cookie = Cookie::new(CSRF_COOKIE, token.clone());
+    cookie.set_http_only(true);
+    cookie.set_path("/admin");
+    cookies.add(cookie);
+    token
+}
+
+/// Validates the CSRF token from a submitted form against the cookie.
+/// Returns `true` if valid.
+fn validate_csrf(cookies: &Cookies, form_token: Option<&str>) -> bool {
+    match (cookies.get(CSRF_COOKIE), form_token) {
+        (Some(cookie), Some(form)) => !form.is_empty() && cookie.value() == form,
+        _ => false,
+    }
+}
+
 // --- Query params ---
 #[derive(Deserialize, Default)]
 struct ListQuery {
@@ -96,6 +124,7 @@ fn fields_to_context(fields: &[crate::field::Field]) -> Vec<FieldContext> {
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_form_error(
     state: &AdminAppState,
     entity: &crate::entity::EntityAdmin,
@@ -104,6 +133,7 @@ fn render_form_error(
     form: HashMap<String, Value>,
     err: crate::error::AdminError,
     is_create: bool,
+    csrf_token: String,
 ) -> Html<String> {
     let errors = match err {
         crate::error::AdminError::ValidationError(e) => e,
@@ -124,7 +154,7 @@ fn render_form_error(
         errors,
         is_create,
         record_id: record_id.to_string(),
-        csrf_token: "todo-csrf".to_string(),
+        csrf_token,
         flash_success: None,
         flash_error: None,
     };
@@ -161,11 +191,15 @@ async fn serve_admin_css() -> impl IntoResponse {
 }
 
 // --- Login ---
-async fn login_page(Extension(state): Extension<Arc<AdminAppState>>) -> Html<String> {
+async fn login_page(
+    cookies: Cookies,
+    Extension(state): Extension<Arc<AdminAppState>>,
+) -> Html<String> {
+    let csrf_token = get_or_create_csrf(&cookies);
     let ctx = LoginContext {
         admin_title: state.title.clone(),
         error: None,
-        csrf_token: "todo-csrf".to_string(),
+        csrf_token,
     };
     Html(state.renderer.render("login.html", ctx))
 }
@@ -184,14 +218,17 @@ async fn login_submit(
 ) -> Response {
     match auth.authenticate(&form.username, &form.password).await {
         Ok(user) => {
+            // Rotate CSRF token on login
+            cookies.remove(Cookie::from(CSRF_COOKIE));
             cookies.add(Cookie::new(SESSION_COOKIE, user.session_id));
             (StatusCode::FOUND, [(LOCATION, "/admin/")]).into_response()
         }
         Err(_) => {
+            let csrf_token = get_or_create_csrf(&cookies);
             let ctx = LoginContext {
                 admin_title: state.title.clone(),
                 error: Some("Invalid username or password.".to_string()),
-                csrf_token: "todo-csrf".to_string(),
+                csrf_token,
             };
             Html(state.renderer.render("login.html", ctx)).into_response()
         }
@@ -248,6 +285,7 @@ async fn entity_list(
         page,
         per_page,
         search: query.search.clone(),
+        search_columns: entity.search_fields.clone(),
         filters: HashMap::new(),
         order_by: query.order_by.as_ref().map(|o| {
             let dir = if query.order_dir.as_deref() == Some("desc") {
@@ -309,6 +347,7 @@ async fn entity_list(
 
 // --- Create ---
 async fn entity_create_form(
+    cookies: Cookies,
     Path(entity_name): Path<String>,
     Extension(state): Extension<Arc<AdminAppState>>,
 ) -> Response {
@@ -317,6 +356,7 @@ async fn entity_create_form(
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
 
+    let csrf_token = get_or_create_csrf(&cookies);
     let ctx = FormContext {
         admin_title: state.title.clone(),
         entities: entity_refs(&state),
@@ -328,7 +368,7 @@ async fn entity_create_form(
         errors: HashMap::new(),
         is_create: true,
         record_id: String::new(),
-        csrf_token: "todo-csrf".to_string(),
+        csrf_token,
         flash_success: None,
         flash_error: None,
     };
@@ -336,10 +376,14 @@ async fn entity_create_form(
 }
 
 async fn entity_create_submit(
+    cookies: Cookies,
     Path(entity_name): Path<String>,
     Extension(state): Extension<Arc<AdminAppState>>,
     Form(form): Form<HashMap<String, String>>,
 ) -> Response {
+    if !validate_csrf(&cookies, form.get("csrf_token").map(String::as_str)) {
+        return (StatusCode::FORBIDDEN, "Invalid CSRF token").into_response();
+    }
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
@@ -351,6 +395,7 @@ async fn entity_create_submit(
         }
     };
 
+    let csrf_token = get_or_create_csrf(&cookies);
     let mut data: HashMap<String, Value> = form
         .iter()
         .filter(|(k, _)| k.as_str() != "csrf_token")
@@ -359,7 +404,7 @@ async fn entity_create_submit(
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, "", data, e, true)
+            return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token)
                 .into_response();
         }
     }
@@ -374,11 +419,11 @@ async fn entity_create_submit(
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),
                 fields: fields_to_context(&entity.fields),
-                values: form.into_iter().collect(),
+                values: form.into_iter().filter(|(k, _)| k != "csrf_token").collect(),
                 errors: errs,
                 is_create: true,
                 record_id: String::new(),
-                csrf_token: "todo-csrf".to_string(),
+                csrf_token,
                 flash_success: None,
                 flash_error: None,
             };
@@ -390,6 +435,7 @@ async fn entity_create_submit(
 
 // --- Edit ---
 async fn entity_edit_form(
+    cookies: Cookies,
     Path((entity_name, id)): Path<(String, String)>,
     Extension(state): Extension<Arc<AdminAppState>>,
 ) -> Response {
@@ -419,6 +465,7 @@ async fn entity_edit_form(
         .map(|(k, v)| (k.clone(), value_to_string(v)))
         .collect();
 
+    let csrf_token = get_or_create_csrf(&cookies);
     let ctx = FormContext {
         admin_title: state.title.clone(),
         entities: entity_refs(&state),
@@ -430,7 +477,7 @@ async fn entity_edit_form(
         errors: HashMap::new(),
         is_create: false,
         record_id: id,
-        csrf_token: "todo-csrf".to_string(),
+        csrf_token,
         flash_success: None,
         flash_error: None,
     };
@@ -438,10 +485,14 @@ async fn entity_edit_form(
 }
 
 async fn entity_edit_submit(
+    cookies: Cookies,
     Path((entity_name, id)): Path<(String, String)>,
     Extension(state): Extension<Arc<AdminAppState>>,
     Form(form): Form<HashMap<String, String>>,
 ) -> Response {
+    if !validate_csrf(&cookies, form.get("csrf_token").map(String::as_str)) {
+        return (StatusCode::FORBIDDEN, "Invalid CSRF token").into_response();
+    }
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
@@ -453,6 +504,7 @@ async fn entity_edit_submit(
         }
     };
 
+    let csrf_token = get_or_create_csrf(&cookies);
     let mut data: HashMap<String, Value> = form
         .iter()
         .filter(|(k, _)| k.as_str() != "csrf_token")
@@ -461,7 +513,7 @@ async fn entity_edit_submit(
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, &id, data, e, false)
+            return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token)
                 .into_response();
         }
     }
@@ -476,11 +528,11 @@ async fn entity_edit_submit(
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),
                 fields: fields_to_context(&entity.fields),
-                values: form.into_iter().collect(),
+                values: form.into_iter().filter(|(k, _)| k != "csrf_token").collect(),
                 errors: errs,
                 is_create: false,
                 record_id: id,
-                csrf_token: "todo-csrf".to_string(),
+                csrf_token,
                 flash_success: None,
                 flash_error: None,
             };

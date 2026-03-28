@@ -171,4 +171,55 @@ mod integration {
         let result = adapter.get(&serde_json::json!(1)).await;
         assert!(matches!(result, Err(AdminError::NotFound)));
     }
+
+    #[tokio::test]
+    async fn search_via_params_search_columns() {
+        // search_columns populated via ListParams (as the router does via entity.search_fields)
+        let db = setup_db().await;
+        let adapter = SeaOrmAdapter::<Entity>::new(db.clone()); // no .search_columns() on adapter
+
+        let params = ListParams {
+            search: Some("Beta".to_string()),
+            search_columns: vec!["name".to_string()],
+            ..ListParams::default()
+        };
+        let rows = adapter.list(params.clone()).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["name"], serde_json::json!("Beta"));
+
+        let count = adapter.count(&params).await.unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn order_by_asc() {
+        let db = setup_db().await;
+        let adapter = SeaOrmAdapter::<Entity>::new(db.clone());
+
+        let params = ListParams {
+            order_by: Some(("name".to_string(), axum_admin::SortOrder::Asc)),
+            ..ListParams::default()
+        };
+        let rows = adapter.list(params).await.unwrap();
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0]["name"], serde_json::json!("Alpha"));
+        assert_eq!(rows[1]["name"], serde_json::json!("Beta"));
+        assert_eq!(rows[2]["name"], serde_json::json!("Gamma"));
+    }
+
+    #[tokio::test]
+    async fn order_by_desc() {
+        let db = setup_db().await;
+        let adapter = SeaOrmAdapter::<Entity>::new(db.clone());
+
+        let params = ListParams {
+            order_by: Some(("name".to_string(), axum_admin::SortOrder::Desc)),
+            ..ListParams::default()
+        };
+        let rows = adapter.list(params).await.unwrap();
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0]["name"], serde_json::json!("Gamma"));
+        assert_eq!(rows[1]["name"], serde_json::json!("Beta"));
+        assert_eq!(rows[2]["name"], serde_json::json!("Alpha"));
+    }
 }

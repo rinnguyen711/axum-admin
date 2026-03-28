@@ -15,6 +15,7 @@ pub struct ListParams {
     pub page: u64,
     pub per_page: u64,
     pub search: Option<String>,
+    pub search_columns: Vec<String>,
     pub filters: HashMap<String, Value>,
     pub order_by: Option<(String, SortOrder)>,
 }
@@ -25,6 +26,7 @@ impl Default for ListParams {
             page: 1,
             per_page: 20,
             search: None,
+            search_columns: Vec::new(),
             filters: HashMap::new(),
             order_by: None,
         }

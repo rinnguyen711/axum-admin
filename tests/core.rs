@@ -105,6 +105,7 @@ async fn data_adapter_mock() {
         page: 1,
         per_page: 20,
         search: None,
+        search_columns: Vec::new(),
         filters: HashMap::new(),
         order_by: None,
     };
@@ -116,6 +117,7 @@ async fn data_adapter_mock() {
         page: 1,
         per_page: 20,
         search: None,
+        search_columns: Vec::new(),
         filters: HashMap::new(),
         order_by: None,
     }).await.unwrap();
