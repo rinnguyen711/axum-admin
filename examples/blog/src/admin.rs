@@ -21,13 +21,6 @@ pub fn build(db: DatabaseConnection) -> Router {
         .register(
             EntityAdmin::from_entity::<post::Entity>("posts")
                 .label("Posts")
-                .field(Field::select(
-                    "status",
-                    vec![
-                        ("draft".to_string(), "Draft".to_string()),
-                        ("published".to_string(), "Published".to_string()),
-                    ],
-                ))
                 .field(
                     Field::foreign_key(
                         "category_id",
@@ -37,12 +30,6 @@ pub fn build(db: DatabaseConnection) -> Router {
                         "name",
                     )
                 )
-                .list_display(vec![
-                    "id".to_string(),
-                    "title".to_string(),
-                    "status".to_string(),
-                    "category_id".to_string(),
-                ])
                 .search_fields(vec!["title".to_string(), "body".to_string()])
                 .adapter(Box::new(SeaOrmAdapter::<post::Entity>::new(db.clone()))),
         )
