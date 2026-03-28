@@ -523,6 +523,80 @@ async fn entity_delete(
     }
 }
 
+// --- Action ---
+async fn entity_action(
+    Path((entity_name, action_name)): Path<(String, String)>,
+    Extension(state): Extension<Arc<AdminAppState>>,
+    axum::extract::RawForm(body): axum::extract::RawForm,
+) -> Response {
+    let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
+        Some(e) => e,
+        None => return (axum::http::StatusCode::NOT_FOUND, "Entity not found").into_response(),
+    };
+
+    let action = match entity.actions.iter().find(|a| a.name == action_name) {
+        Some(a) => a,
+        None => return (axum::http::StatusCode::NOT_FOUND, "Action not found").into_response(),
+    };
+
+    // Parse repeated form fields manually (serde_urlencoded doesn't support Vec for repeated keys)
+    let pairs: Vec<(String, String)> = form_urlencoded::parse(&body)
+        .map(|(k, v)| (k.into_owned(), v.into_owned()))
+        .collect();
+    let selected_ids: Vec<String> = pairs.iter()
+        .filter(|(k, _)| k == "selected_ids")
+        .map(|(_, v)| v.clone())
+        .collect();
+    let id: Option<String> = pairs.iter()
+        .find(|(k, _)| k == "id")
+        .map(|(_, v)| v.clone());
+
+    use crate::entity::{ActionContext, ActionTarget};
+    let ids: Vec<Value> = match action.target {
+        ActionTarget::List => selected_ids.iter()
+            .map(|s| Value::String(s.clone()))
+            .collect(),
+        ActionTarget::Detail => id.iter()
+            .map(|s| Value::String(s.clone()))
+            .collect(),
+    };
+
+    let ctx = ActionContext {
+        ids,
+        params: HashMap::new(),
+    };
+
+    match (action.handler)(ctx).await {
+        Ok(crate::entity::ActionResult::Success(msg)) => {
+            use crate::render::context::FlashContext;
+            let html = state.renderer.render("flash.html", FlashContext {
+                success: Some(msg),
+                error: None,
+            });
+            Html(html).into_response()
+        }
+        Ok(crate::entity::ActionResult::Error(msg)) => {
+            use crate::render::context::FlashContext;
+            let html = state.renderer.render("flash.html", FlashContext {
+                success: None,
+                error: Some(msg),
+            });
+            Html(html).into_response()
+        }
+        Ok(crate::entity::ActionResult::Redirect(url)) => {
+            (StatusCode::FOUND, [(LOCATION, url)]).into_response()
+        }
+        Err(e) => {
+            use crate::render::context::FlashContext;
+            let html = state.renderer.render("flash.html", FlashContext {
+                success: None,
+                error: Some(e.to_string()),
+            });
+            Html(html).into_response()
+        }
+    }
+}
+
 // --- Router assembly ---
 impl AdminApp {
     pub fn into_router(self) -> Router {
@@ -537,6 +611,7 @@ impl AdminApp {
             .route("/admin/:entity/:id/", get(entity_edit_form))
             .route("/admin/:entity/:id/", post(entity_edit_submit))
             .route("/admin/:entity/:id/delete", delete(entity_delete))
+            .route("/admin/:entity/action/:action_name", post(entity_action))
             .route_layer(middleware::from_fn(require_auth));
 
         Router::new()
