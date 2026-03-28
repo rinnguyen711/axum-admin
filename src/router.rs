@@ -106,7 +106,7 @@ async fn fields_to_context(fields: &[crate::field::Field]) -> Vec<FieldContext> 
             FieldType::Select(opts) => ("Select".to_string(), opts.clone()),
             FieldType::ForeignKey { adapter, value_field, label_field, limit, order_by } => {
                 let params = crate::adapter::ListParams {
-                    per_page: limit.unwrap_or(u64::MAX),
+                    per_page: limit.unwrap_or(i64::MAX as u64),
                     order_by: order_by.as_ref().map(|field| (field.clone(), crate::adapter::SortOrder::Asc)),
                     ..Default::default()
                 };
