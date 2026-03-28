@@ -272,4 +272,48 @@ mod integration {
         let name_field = entity.fields.iter().find(|f| f.name == "name").unwrap();
         assert!(name_field.required, "overridden field should be required");
     }
+
+    #[test]
+    fn seaorm_fields_for_enum_column_produces_select() {
+        use axum_admin::adapters::seaorm::seaorm_fields_for;
+        use axum_admin::FieldType;
+
+        mod with_enum {
+            use sea_orm::entity::prelude::*;
+
+            #[derive(Clone, Debug, PartialEq, EnumIter, DeriveActiveEnum)]
+            #[sea_orm(rs_type = "String", db_type = "Enum")]
+            pub enum Status {
+                #[sea_orm(string_value = "draft")]
+                Draft,
+                #[sea_orm(string_value = "published")]
+                Published,
+            }
+
+            #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+            #[sea_orm(table_name = "posts")]
+            pub struct Model {
+                #[sea_orm(primary_key)]
+                pub id: i32,
+                pub status: Status,
+            }
+
+            #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+            pub enum Relation {}
+            impl ActiveModelBehavior for ActiveModel {}
+        }
+
+        let fields = seaorm_fields_for::<with_enum::Entity>();
+        let status_field = fields.iter().find(|f| f.name == "status").expect("status field missing");
+
+        if let FieldType::Select(options) = &status_field.field_type {
+            assert_eq!(options.len(), 2);
+            assert!(options.iter().any(|(v, l)| v == "draft" && l == "Draft"),
+                "expected (\"draft\", \"Draft\") in options, got: {:?}", options);
+            assert!(options.iter().any(|(v, l)| v == "published" && l == "Published"),
+                "expected (\"published\", \"Published\") in options, got: {:?}", options);
+        } else {
+            panic!("expected FieldType::Select for status column, got: {:?}", status_field.field_type);
+        }
+    }
 }

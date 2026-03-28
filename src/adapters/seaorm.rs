@@ -305,6 +305,17 @@ where
                 | ColumnType::Timestamp
                 | ColumnType::TimestampWithTimeZone => FieldType::DateTime,
                 ColumnType::Json | ColumnType::JsonBinary => FieldType::Json,
+                ColumnType::Enum { variants, .. } => {
+                    FieldType::Select(
+                        variants.iter()
+                            .map(|v| {
+                                let s = v.to_string();
+                                let label = crate::field::default_label(&s);
+                                (s, label)
+                            })
+                            .collect()
+                    )
+                }
                 _ => FieldType::Text,
             };
             let mut f = Field::new(name, field_type);
