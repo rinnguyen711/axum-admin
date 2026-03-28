@@ -6,6 +6,7 @@ pub mod app;
 pub mod auth;
 pub mod middleware;
 pub mod router;
+pub mod render;
 
 pub use error::AdminError;
 pub use field::{Field, FieldType, Widget};
