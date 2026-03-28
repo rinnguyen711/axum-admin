@@ -1,5 +1,11 @@
 {% if success %}
-<div class="flash-success" id="flash">{{ success }}</div>
+<div class="mt-4 px-4 py-3 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center gap-2" id="flash">
+  <i class="fa-solid fa-circle-check text-emerald-500"></i>
+  {{ success }}
+</div>
 {% elif error %}
-<div class="flash-error" id="flash">{{ error }}</div>
+<div class="mt-4 px-4 py-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm font-medium flex items-center gap-2" id="flash">
+  <i class="fa-solid fa-circle-exclamation text-red-500"></i>
+  {{ error }}
+</div>
 {% endif %}
