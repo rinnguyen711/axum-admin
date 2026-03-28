@@ -88,44 +88,59 @@ fn row_to_context(row: &HashMap<String, Value>) -> RowContext {
     RowContext { id, data }
 }
 
-fn fields_to_context(fields: &[crate::field::Field]) -> Vec<FieldContext> {
+async fn fields_to_context(fields: &[crate::field::Field]) -> Vec<FieldContext> {
     use crate::field::FieldType;
-    fields
-        .iter()
-        .map(|f| {
-            let (type_str, options) = match &f.field_type {
-                FieldType::Text => ("Text".to_string(), vec![]),
-                FieldType::TextArea => ("TextArea".to_string(), vec![]),
-                FieldType::Email => ("Email".to_string(), vec![]),
-                FieldType::Password => ("Password".to_string(), vec![]),
-                FieldType::Number => ("Number".to_string(), vec![]),
-                FieldType::Float => ("Float".to_string(), vec![]),
-                FieldType::Boolean => ("Boolean".to_string(), vec![]),
-                FieldType::Date => ("Date".to_string(), vec![]),
-                FieldType::DateTime => ("DateTime".to_string(), vec![]),
-                FieldType::Json => ("Json".to_string(), vec![]),
-                FieldType::Select(opts) => ("Select".to_string(), opts.clone()),
-                FieldType::ForeignKey { .. } => ("ForeignKey".to_string(), vec![]),
-                FieldType::Custom(_) => ("Text".to_string(), vec![]),
-            };
-            FieldContext {
-                name: f.name.clone(),
-                label: f.label.clone(),
-                field_type: type_str,
-                readonly: f.readonly,
-                hidden: f.hidden,
-                list_only: f.list_only,
-                form_only: f.form_only,
-                required: f.required,
-                help_text: f.help_text.clone(),
-                options,
+    let mut result = Vec::with_capacity(fields.len());
+    for f in fields {
+        let (type_str, options) = match &f.field_type {
+            FieldType::Text => ("Text".to_string(), vec![]),
+            FieldType::TextArea => ("TextArea".to_string(), vec![]),
+            FieldType::Email => ("Email".to_string(), vec![]),
+            FieldType::Password => ("Password".to_string(), vec![]),
+            FieldType::Number => ("Number".to_string(), vec![]),
+            FieldType::Float => ("Float".to_string(), vec![]),
+            FieldType::Boolean => ("Boolean".to_string(), vec![]),
+            FieldType::Date => ("Date".to_string(), vec![]),
+            FieldType::DateTime => ("DateTime".to_string(), vec![]),
+            FieldType::Json => ("Json".to_string(), vec![]),
+            FieldType::Select(opts) => ("Select".to_string(), opts.clone()),
+            FieldType::ForeignKey { adapter, value_field, label_field, limit, order_by } => {
+                let params = crate::adapter::ListParams {
+                    per_page: limit.unwrap_or(u64::MAX),
+                    order_by: order_by.as_ref().map(|field| (field.clone(), crate::adapter::SortOrder::Asc)),
+                    ..Default::default()
+                };
+                let rows = adapter.list(params).await.unwrap_or_default();
+                let options = rows
+                    .iter()
+                    .filter_map(|row| {
+                        let value = row.get(value_field).map(value_to_string)?;
+                        let label = row.get(label_field).map(value_to_string).unwrap_or_else(|| value.clone());
+                        Some((value, label))
+                    })
+                    .collect();
+                ("Select".to_string(), options)
             }
-        })
-        .collect()
+            FieldType::Custom(_) => ("Text".to_string(), vec![]),
+        };
+        result.push(FieldContext {
+            name: f.name.clone(),
+            label: f.label.clone(),
+            field_type: type_str,
+            readonly: f.readonly,
+            hidden: f.hidden,
+            list_only: f.list_only,
+            form_only: f.form_only,
+            required: f.required,
+            help_text: f.help_text.clone(),
+            options,
+        });
+    }
+    result
 }
 
 #[allow(clippy::too_many_arguments)]
-fn render_form_error(
+async fn render_form_error(
     state: &AdminAppState,
     entity: &crate::entity::EntityAdmin,
     entity_name: &str,
@@ -149,7 +164,7 @@ fn render_form_error(
         current_entity: entity_name.to_string(),
         entity_name: entity_name.to_string(),
         entity_label: entity.label.clone(),
-        fields: fields_to_context(&entity.fields),
+        fields: fields_to_context(&entity.fields).await,
         values,
         errors,
         is_create,
@@ -365,7 +380,7 @@ async fn entity_create_form(
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
-        fields: fields_to_context(&entity.fields),
+        fields: fields_to_context(&entity.fields).await,
         values: HashMap::new(),
         errors: HashMap::new(),
         is_create: true,
@@ -406,7 +421,7 @@ async fn entity_create_submit(
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token)
+            return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token).await
                 .into_response();
         }
     }
@@ -420,7 +435,7 @@ async fn entity_create_submit(
                 current_entity: entity_name.clone(),
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),
-                fields: fields_to_context(&entity.fields),
+                fields: fields_to_context(&entity.fields).await,
                 values: form.into_iter().filter(|(k, _)| k != "csrf_token").collect(),
                 errors: errs,
                 is_create: true,
@@ -474,7 +489,7 @@ async fn entity_edit_form(
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
-        fields: fields_to_context(&entity.fields),
+        fields: fields_to_context(&entity.fields).await,
         values,
         errors: HashMap::new(),
         is_create: false,
@@ -515,7 +530,7 @@ async fn entity_edit_submit(
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token)
+            return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token).await
                 .into_response();
         }
     }
@@ -529,7 +544,7 @@ async fn entity_edit_submit(
                 current_entity: entity_name.clone(),
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),
-                fields: fields_to_context(&entity.fields),
+                fields: fields_to_context(&entity.fields).await,
                 values: form.into_iter().filter(|(k, _)| k != "csrf_token").collect(),
                 errors: errs,
                 is_create: false,

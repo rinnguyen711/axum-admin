@@ -102,3 +102,57 @@ async fn delete_redirects() {
     let resp = server.delete("/admin/users/1/delete").await;
     assert_eq!(resp.status_code(), StatusCode::FOUND);
 }
+
+struct FkStubAdapter;
+
+#[async_trait]
+impl DataAdapter for FkStubAdapter {
+    async fn list(&self, _p: ListParams) -> Result<Vec<HashMap<String, Value>>, AdminError> {
+        Ok(vec![
+            HashMap::from([("id".to_string(), Value::from(1)), ("name".to_string(), Value::from("Tech"))]),
+            HashMap::from([("id".to_string(), Value::from(2)), ("name".to_string(), Value::from("Rust"))]),
+        ])
+    }
+    async fn get(&self, _id: &Value) -> Result<HashMap<String, Value>, AdminError> {
+        Ok(HashMap::from([("id".to_string(), Value::from(1)), ("category_id".to_string(), Value::from(1))]))
+    }
+    async fn create(&self, _d: HashMap<String, Value>) -> Result<Value, AdminError> { Ok(Value::from(1)) }
+    async fn update(&self, _id: &Value, _d: HashMap<String, Value>) -> Result<(), AdminError> { Ok(()) }
+    async fn delete(&self, _id: &Value) -> Result<(), AdminError> { Ok(()) }
+    async fn count(&self, _p: &ListParams) -> Result<u64, AdminError> { Ok(1) }
+}
+
+fn make_fk_app() -> axum::Router {
+    AdminApp::new()
+        .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
+        .register(
+            EntityAdmin::new::<()>("posts")
+                .label("Posts")
+                .field(Field::text("title").required())
+                .field(Field::foreign_key(
+                    "category_id",
+                    "Category",
+                    Box::new(FkStubAdapter),
+                    "id",
+                    "name",
+                ))
+                .list_display(vec!["id".to_string(), "title".to_string()])
+                .adapter(Box::new(FkStubAdapter)),
+        )
+        .into_router()
+}
+
+#[tokio::test]
+async fn fk_field_renders_select_with_options() {
+    let config = TestServerConfig { save_cookies: true, ..TestServerConfig::default() };
+    let server = TestServer::new_with_config(make_fk_app(), config).unwrap();
+    server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
+
+    let resp = server.get("/admin/posts/1/").await;
+    assert_eq!(resp.status_code(), StatusCode::OK);
+    let body = resp.text();
+    assert!(body.contains("Tech"), "Expected FK option 'Tech' in form");
+    assert!(body.contains("Rust"), "Expected FK option 'Rust' in form");
+    assert!(body.contains(r#"name="category_id""#), "Expected category_id field");
+    assert!(body.contains("<option"), "Expected <option> elements for FK field");
+}
