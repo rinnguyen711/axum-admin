@@ -1,0 +1,56 @@
+<table>
+  <thead>
+    <tr>
+      <th><input type="checkbox" @change="selected = $event.target.checked ? rows.map(r => r.id) : []" /></th>
+      {% for col in columns %}
+      <th>
+        <a hx-get="/admin/{{ entity_name }}/?order_by={{ col }}&order_dir={% if order_by == col and order_dir == 'asc' %}desc{% else %}asc{% endif %}"
+           hx-target="#list-table">
+          {{ col }}
+          {% if order_by == col %}{% if order_dir == "asc" %}↑{% else %}↓{% endif %}{% endif %}
+        </a>
+      </th>
+      {% endfor %}
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>
+        <input type="checkbox" name="selected_ids" value="{{ row.id }}"
+               x-model="selected" />
+      </td>
+      {% for col in columns %}
+      <td>{{ row.data[col] }}</td>
+      {% endfor %}
+      <td>
+        <a href="/admin/{{ entity_name }}/{{ row.id }}/">Edit</a>
+        <button
+          hx-delete="/admin/{{ entity_name }}/{{ row.id }}/delete"
+          hx-confirm="Delete this record?"
+          hx-target="closest tr"
+          hx-swap="outerHTML">
+          Delete
+        </button>
+      </td>
+    </tr>
+    {% endfor %}
+    {% if rows | length == 0 %}
+    <tr><td colspan="99" style="text-align:center">No records found.</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+
+<!-- Pagination -->
+<div style="display:flex; gap:0.5rem; margin-top:1rem;">
+  {% if page > 1 %}
+  <button hx-get="/admin/{{ entity_name }}/?page={{ page - 1 }}&search={{ search }}"
+          hx-target="#list-table">Previous</button>
+  {% endif %}
+  <span>Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+  <button hx-get="/admin/{{ entity_name }}/?page={{ page + 1 }}&search={{ search }}"
+          hx-target="#list-table">Next</button>
+  {% endif %}
+</div>

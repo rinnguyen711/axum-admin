@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login — {{ admin_title }}</title>
+  <link rel="stylesheet" href="/admin/_static/pico.min.css" />
+  <link rel="stylesheet" href="/admin/_static/admin.css" />
+</head>
+<body>
+  <main style="max-width: 360px; margin: 5rem auto;">
+    <h2>{{ admin_title }}</h2>
+    {% if error %}
+    <div class="flash-error">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/admin/login">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      <label>
+        Username
+        <input name="username" type="text" autocomplete="username" required />
+      </label>
+      <label>
+        Password
+        <input name="password" type="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Login</button>
+    </form>
+  </main>
+</body>
+</html>

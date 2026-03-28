@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+{% block title %}{% if is_create %}New {{ entity_label }}{% else %}Edit {{ entity_label }}{% endif %} — {{ admin_title }}{% endblock %}
+{% block content %}
+<h2>{% if is_create %}New {{ entity_label }}{% else %}Edit #{{ record_id }}{% endif %}</h2>
+
+<form method="post" action="{% if is_create %}/admin/{{ entity_name }}/new{% else %}/admin/{{ entity_name }}/{{ record_id }}/{% endif %}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+  {% for field in fields %}
+  {% if not field.hidden and not field.list_only %}
+  <label>
+    {{ field.label }}{% if field.required %} *{% endif %}
+    {% if field.field_type == "Text" %}
+    <input type="text" name="{{ field.name }}"
+           value="{{ values[field.name] | default('') }}"
+           {% if field.readonly %}readonly{% endif %}
+           {% if field.required %}required{% endif %} />
+    {% elif field.field_type == "TextArea" %}
+    <textarea name="{{ field.name }}"
+              {% if field.readonly %}readonly{% endif %}
+              {% if field.required %}required{% endif %}>{{ values[field.name] | default('') }}</textarea>
+    {% elif field.field_type == "Email" %}
+    <input type="email" name="{{ field.name }}"
+           value="{{ values[field.name] | default('') }}"
+           {% if field.readonly %}readonly{% endif %}
+           {% if field.required %}required{% endif %} />
+    {% elif field.field_type == "Password" %}
+    <input type="password" name="{{ field.name }}"
+           {% if field.readonly %}readonly{% endif %} />
+    {% elif field.field_type == "Number" %}
+    <input type="number" name="{{ field.name }}"
+           value="{{ values[field.name] | default('') }}"
+           {% if field.readonly %}readonly{% endif %}
+           {% if field.required %}required{% endif %} />
+    {% elif field.field_type == "Boolean" %}
+    <input type="checkbox" name="{{ field.name }}"
+           {% if values[field.name] %}checked{% endif %}
+           {% if field.readonly %}readonly{% endif %} />
+    {% elif field.field_type == "Select" %}
+    <select name="{{ field.name }}" {% if field.readonly %}disabled{% endif %}>
+      {% for opt in field.options %}
+      <option value="{{ opt.0 }}" {% if values[field.name] == opt.0 %}selected{% endif %}>{{ opt.1 }}</option>
+      {% endfor %}
+    </select>
+    {% elif field.field_type == "Date" %}
+    <input type="date" name="{{ field.name }}"
+           value="{{ values[field.name] | default('') }}"
+           {% if field.readonly %}readonly{% endif %} />
+    {% elif field.field_type == "DateTime" %}
+    <input type="datetime-local" name="{{ field.name }}"
+           value="{{ values[field.name] | default('') }}"
+           {% if field.readonly %}readonly{% endif %} />
+    {% elif field.field_type == "Json" %}
+    <textarea name="{{ field.name }}"
+              {% if field.readonly %}readonly{% endif %}>{{ values[field.name] | default('') }}</textarea>
+    {% endif %}
+    {% if field.help_text %}
+    <small>{{ field.help_text }}</small>
+    {% endif %}
+    {% if errors[field.name] %}
+    <div class="field-error">{{ errors[field.name] }}</div>
+    {% endif %}
+  </label>
+  {% endif %}
+  {% endfor %}
+
+  <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+    <button type="submit">Save</button>
+    <a href="/admin/{{ entity_name }}/" role="button" class="secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

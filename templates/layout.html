@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}{{ admin_title }}{% endblock %}</title>
+  <link rel="stylesheet" href="/admin/_static/pico.min.css" />
+  <link rel="stylesheet" href="/admin/_static/admin.css" />
+  <script defer src="/admin/_static/alpine.min.js"></script>
+  <script src="/admin/_static/htmx.min.js"></script>
+</head>
+<body x-data="{ sidebarOpen: true }">
+  <div class="admin-layout">
+    <aside class="admin-sidebar" x-show="sidebarOpen">
+      <strong>{{ admin_title }}</strong>
+      <nav>
+        <a href="/admin/">Dashboard</a>
+        {% for entity in entities %}
+        <a href="/admin/{{ entity.name }}/"
+           {% if current_entity == entity.name %}class="active"{% endif %}>
+          {{ entity.label }}
+        </a>
+        {% endfor %}
+      </nav>
+      <hr />
+      <a href="/admin/logout">Logout</a>
+    </aside>
+    <main class="admin-main">
+      {% if flash_success %}
+      <div class="flash-success" id="flash">{{ flash_success }}</div>
+      {% endif %}
+      {% if flash_error %}
+      <div class="flash-error" id="flash">{{ flash_error }}</div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>
