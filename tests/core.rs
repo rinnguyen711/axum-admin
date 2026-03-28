@@ -130,3 +130,67 @@ fn list_params_defaults() {
     assert!(p.search.is_none());
     assert!(p.order_by.is_none());
 }
+
+use axum_admin::{EntityAdmin, ActionTarget, ActionContext, ActionResult};
+use axum_admin::entity::CustomAction;
+
+struct User;
+
+#[tokio::test]
+async fn entity_admin_builder_basic() {
+    let entity = EntityAdmin::new::<User>("users")
+        .label("Users")
+        .field(Field::text("name"))
+        .field(Field::email("email").required())
+        .list_display(vec!["name".to_string(), "email".to_string()])
+        .search_fields(vec!["name".to_string(), "email".to_string()])
+        .adapter(Box::new(MockAdapter));
+
+    assert_eq!(entity.label, "Users");
+    assert_eq!(entity.entity_name, "users");
+    assert_eq!(entity.fields.len(), 2);
+    assert_eq!(entity.list_display, vec!["name", "email"]);
+    assert_eq!(entity.search_fields, vec!["name", "email"]);
+    assert!(entity.adapter.is_some());
+}
+
+#[tokio::test]
+async fn entity_admin_custom_action() {
+    let entity = EntityAdmin::new::<User>("users")
+        .adapter(Box::new(MockAdapter))
+        .action(
+            CustomAction::new("ban", "Ban Users")
+                .target(ActionTarget::List)
+                .confirm("Sure?")
+                .handler(|_ctx| Box::pin(async { Ok(ActionResult::Success("Banned".to_string())) })),
+        );
+
+    assert_eq!(entity.actions.len(), 1);
+    assert_eq!(entity.actions[0].name, "ban");
+    assert_eq!(entity.actions[0].label, "Ban Users");
+    assert!(entity.actions[0].confirm.is_some());
+    assert!(matches!(entity.actions[0].target, ActionTarget::List));
+
+    // invoke the handler
+    let ctx = ActionContext { ids: vec![Value::from(1)], params: HashMap::new() };
+    let result = (entity.actions[0].handler)(ctx).await.unwrap();
+    assert!(matches!(result, ActionResult::Success(_)));
+}
+
+#[test]
+fn entity_admin_before_save_hook() {
+    let mut data = HashMap::from([("name".to_string(), Value::from("  alice  "))]);
+    let entity = EntityAdmin::new::<User>("users")
+        .adapter(Box::new(MockAdapter))
+        .before_save(|d| {
+            if let Some(Value::String(s)) = d.get_mut("name") {
+                *s = s.trim().to_string();
+            }
+            Ok(())
+        });
+
+    if let Some(hook) = &entity.before_save {
+        hook(&mut data).unwrap();
+    }
+    assert_eq!(data["name"], Value::from("alice"));
+}
