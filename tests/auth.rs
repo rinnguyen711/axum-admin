@@ -1,4 +1,4 @@
-use axum_admin::auth::{AdminAuth, AdminUser, DefaultAdminAuth};
+use axum_admin::auth::{AdminAuth, DefaultAdminAuth};
 use axum_admin::AdminError;
 
 #[tokio::test]
