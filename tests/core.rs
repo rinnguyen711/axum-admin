@@ -1,6 +1,9 @@
 use axum_admin::AdminError;
 use axum_admin::{Field, FieldType};
+use axum_admin::{DataAdapter, ListParams};
 use std::collections::HashMap;
+use async_trait::async_trait;
+use serde_json::Value;
 
 #[test]
 fn admin_error_display() {
@@ -67,4 +70,63 @@ fn field_modifiers() {
 
     let f = Field::text("bio").form_only();
     assert!(f.form_only);
+}
+
+struct MockAdapter;
+
+#[async_trait]
+impl DataAdapter for MockAdapter {
+    async fn list(&self, _params: ListParams) -> Result<Vec<HashMap<String, Value>>, AdminError> {
+        Ok(vec![
+            HashMap::from([("id".to_string(), Value::from(1)), ("name".to_string(), Value::from("Alice"))]),
+        ])
+    }
+    async fn get(&self, _id: &Value) -> Result<HashMap<String, Value>, AdminError> {
+        Ok(HashMap::from([("id".to_string(), Value::from(1))]))
+    }
+    async fn create(&self, _data: HashMap<String, Value>) -> Result<Value, AdminError> {
+        Ok(Value::from(42))
+    }
+    async fn update(&self, _id: &Value, _data: HashMap<String, Value>) -> Result<(), AdminError> {
+        Ok(())
+    }
+    async fn delete(&self, _id: &Value) -> Result<(), AdminError> {
+        Ok(())
+    }
+    async fn count(&self, _params: &ListParams) -> Result<u64, AdminError> {
+        Ok(1)
+    }
+}
+
+#[tokio::test]
+async fn data_adapter_mock() {
+    let adapter = MockAdapter;
+    let params = ListParams {
+        page: 1,
+        per_page: 20,
+        search: None,
+        filters: HashMap::new(),
+        order_by: None,
+    };
+    let rows = adapter.list(params).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["name"], Value::from("Alice"));
+
+    let count = adapter.count(&ListParams {
+        page: 1,
+        per_page: 20,
+        search: None,
+        filters: HashMap::new(),
+        order_by: None,
+    }).await.unwrap();
+    assert_eq!(count, 1);
+}
+
+#[test]
+fn list_params_defaults() {
+    let p = ListParams::default();
+    assert_eq!(p.page, 1);
+    assert_eq!(p.per_page, 20);
+    assert!(p.search.is_none());
+    assert!(p.order_by.is_none());
 }
