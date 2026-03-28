@@ -194,3 +194,28 @@ fn entity_admin_before_save_hook() {
     }
     assert_eq!(data["name"], Value::from("alice"));
 }
+
+use axum_admin::AdminApp;
+
+#[test]
+fn admin_app_builder() {
+    let app = AdminApp::new()
+        .title("My Admin")
+        .prefix("/admin")
+        .register(
+            EntityAdmin::new::<User>("users")
+                .label("Users")
+                .adapter(Box::new(MockAdapter)),
+        )
+        .register(
+            EntityAdmin::new::<User>("posts")
+                .label("Posts")
+                .adapter(Box::new(MockAdapter)),
+        );
+
+    assert_eq!(app.title, "My Admin");
+    assert_eq!(app.prefix, "/admin");
+    assert_eq!(app.entities.len(), 2);
+    assert_eq!(app.entities[0].entity_name, "users");
+    assert_eq!(app.entities[1].entity_name, "posts");
+}
