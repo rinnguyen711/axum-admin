@@ -31,7 +31,15 @@ pub fn build(db: DatabaseConnection) -> Router {
                         ("published".to_string(), "Published".to_string()),
                     ],
                 ))
-                .field(Field::number("category_id").label("Category ID"))
+                .field(
+                    Field::foreign_key(
+                        "category_id",
+                        "Category",
+                        Box::new(SeaOrmAdapter::<category::Entity>::new(db.clone())),
+                        "id",
+                        "name",
+                    )
+                )
                 .list_display(vec![
                     "id".to_string(),
                     "title".to_string(),
