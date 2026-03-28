@@ -176,13 +176,6 @@ async fn serve_alpine() -> impl IntoResponse {
     )
 }
 
-async fn serve_pico_css() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "text/css")],
-        include_str!("../static/pico.min.css"),
-    )
-}
-
 async fn serve_admin_css() -> impl IntoResponse {
     (
         [(header::CONTENT_TYPE, "text/css")],
@@ -671,7 +664,6 @@ impl AdminApp {
             .route("/admin/login", post(login_submit))
             .route("/admin/_static/htmx.min.js", get(serve_htmx))
             .route("/admin/_static/alpine.min.js", get(serve_alpine))
-            .route("/admin/_static/pico.min.css", get(serve_pico_css))
             .route("/admin/_static/admin.css", get(serve_admin_css))
             .merge(protected)
             .layer(Extension(state))
