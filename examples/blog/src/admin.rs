@@ -12,18 +12,15 @@ pub fn build(db: DatabaseConnection) -> Router {
             DefaultAdminAuth::new().add_user("admin", "admin"),
         ))
         .register(
-            EntityAdmin::new::<category::Entity>("categories")
+            EntityAdmin::from_entity::<category::Entity>("categories")
                 .label("Categories")
-                .field(Field::text("name").required())
                 .list_display(vec!["id".to_string(), "name".to_string()])
                 .search_fields(vec!["name".to_string()])
                 .adapter(Box::new(SeaOrmAdapter::<category::Entity>::new(db.clone()))),
         )
         .register(
-            EntityAdmin::new::<post::Entity>("posts")
+            EntityAdmin::from_entity::<post::Entity>("posts")
                 .label("Posts")
-                .field(Field::text("title").required())
-                .field(Field::text("body"))
                 .field(Field::select(
                     "status",
                     vec![
