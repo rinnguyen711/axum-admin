@@ -12,6 +12,7 @@ pub struct AdminApp {
     pub prefix: String,
     pub entities: Vec<EntityAdmin>,
     pub auth: Option<Arc<dyn AdminAuth>>,
+    pub(crate) templates: Vec<(String, String)>,
 }
 
 impl AdminApp {
@@ -21,6 +22,7 @@ impl AdminApp {
             prefix: "/admin".to_string(),
             entities: Vec::new(),
             auth: None,
+            templates: Vec::new(),
         }
     }
 
@@ -44,6 +46,14 @@ impl AdminApp {
         self
     }
 
+    /// Override or add a template by name. The name must match what the router
+    /// uses (e.g. `"home.html"`, `"layout.html"`, `"form.html"`).
+    /// Custom templates can also be added and rendered via custom routes.
+    pub fn template(mut self, name: &str, content: &str) -> Self {
+        self.templates.push((name.to_string(), content.to_string()));
+        self
+    }
+
     pub(crate) fn into_state(self) -> (Arc<dyn AdminAuth>, Arc<AdminAppState>) {
         let auth = self
             .auth
@@ -51,7 +61,7 @@ impl AdminApp {
         let state = Arc::new(AdminAppState {
             title: self.title,
             entities: self.entities,
-            renderer: AdminRenderer::new(),
+            renderer: AdminRenderer::with_overrides(self.templates),
         });
         (auth, state)
     }

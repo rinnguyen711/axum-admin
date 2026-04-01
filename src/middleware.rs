@@ -25,5 +25,10 @@ pub async fn require_auth(
         }
     }
 
-    (StatusCode::FOUND, [(LOCATION, "/admin/login")]).into_response()
+    let path = req.uri().path_and_query().map(|p| p.as_str()).unwrap_or("/admin/");
+    let encoded: String = form_urlencoded::Serializer::new(String::new())
+        .append_pair("next", path)
+        .finish();
+    let login_url = format!("/admin/login?{}", encoded);
+    (StatusCode::FOUND, [(LOCATION, login_url)]).into_response()
 }

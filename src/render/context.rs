@@ -33,6 +33,8 @@ pub struct ActionContext {
     pub label: String,
     pub target: String,
     pub confirm: Option<String>,
+    pub icon: Option<String>,
+    pub class: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -52,6 +54,9 @@ pub struct ListContext {
     pub order_dir: String,
     pub filter_fields: Vec<FieldContext>,
     pub active_filters: HashMap<String, String>,
+    pub bulk_delete: bool,
+    pub bulk_export: bool,
+    pub export_columns: Vec<(String, String)>,  // (name, label)
     pub flash_success: Option<String>,
     pub flash_error: Option<String>,
 }
@@ -78,6 +83,7 @@ pub struct LoginContext {
     pub admin_title: String,
     pub error: Option<String>,
     pub csrf_token: String,
+    pub next: Option<String>,
 }
 
 #[derive(Serialize)]

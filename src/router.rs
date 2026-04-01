@@ -104,14 +104,22 @@ fn parse_filters(raw_query: Option<&str>) -> HashMap<String, Value> {
 }
 
 fn resolve_filter_fields<'a>(entity: &'a crate::entity::EntityAdmin) -> Vec<&'a crate::field::Field> {
-    // Auto-generated from filter_fields (resolved against entity.fields)
-    let mut result: Vec<&crate::field::Field> = entity
-        .filter_fields
+    // Determine the base set of column names to generate filter inputs for.
+    // Priority: explicit filter_fields > list_display > all non-hidden fields.
+    let base_names: Vec<&str> = if !entity.filter_fields.is_empty() {
+        entity.filter_fields.iter().map(|s| s.as_str()).collect()
+    } else if !entity.list_display.is_empty() {
+        entity.list_display.iter().map(|s| s.as_str()).collect()
+    } else {
+        entity.fields.iter().filter(|f| !f.hidden).map(|f| f.name.as_str()).collect()
+    };
+
+    let mut result: Vec<&crate::field::Field> = base_names
         .iter()
-        .filter_map(|name| entity.fields.iter().find(|f| &f.name == name))
+        .filter_map(|name| entity.fields.iter().find(|f| f.name.as_str() == *name))
         .collect();
 
-    // Upsert entity.filters (custom) by name
+    // Upsert entity.filters (custom overrides) by name
     for custom in &entity.filters {
         if let Some(pos) = result.iter().position(|f| f.name == custom.name) {
             result[pos] = custom;
@@ -261,6 +269,7 @@ async fn serve_admin_css() -> impl IntoResponse {
 // --- Login ---
 async fn login_page(
     cookies: Cookies,
+    Query(query): Query<LoginQuery>,
     Extension(state): Extension<Arc<AdminAppState>>,
 ) -> Html<String> {
     let csrf_token = get_or_create_csrf(&cookies);
@@ -268,14 +277,21 @@ async fn login_page(
         admin_title: state.title.clone(),
         error: None,
         csrf_token,
+        next: query.next,
     };
     Html(state.renderer.render("login.html", ctx))
+}
+
+#[derive(Deserialize)]
+struct LoginQuery {
+    next: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct LoginForm {
     username: String,
     password: String,
+    next: Option<String>,
 }
 
 async fn login_submit(
@@ -284,12 +300,14 @@ async fn login_submit(
     Extension(state): Extension<Arc<AdminAppState>>,
     Form(form): Form<LoginForm>,
 ) -> Response {
+    let next = form.next.clone().filter(|s| s.starts_with('/'));
     match auth.authenticate(&form.username, &form.password).await {
         Ok(user) => {
             // Rotate CSRF token on login
             cookies.remove(Cookie::from(CSRF_COOKIE));
             cookies.add(Cookie::new(SESSION_COOKIE, user.session_id));
-            (StatusCode::FOUND, [(LOCATION, "/admin/")]).into_response()
+            let redirect_to = next.unwrap_or_else(|| "/admin/".to_string());
+            (StatusCode::FOUND, [(LOCATION, redirect_to)]).into_response()
         }
         Err(_) => {
             let csrf_token = get_or_create_csrf(&cookies);
@@ -297,6 +315,7 @@ async fn login_submit(
                 admin_title: state.title.clone(),
                 error: Some("Invalid username or password.".to_string()),
                 csrf_token,
+                next,
             };
             Html(state.renderer.render("login.html", ctx)).into_response()
         }
@@ -373,7 +392,13 @@ async fn entity_list(
         page,
         per_page,
         search: query.search.clone(),
-        search_columns: entity.search_fields.clone(),
+        search_columns: if !entity.search_fields.is_empty() {
+            entity.search_fields.clone()
+        } else if !entity.list_display.is_empty() {
+            entity.list_display.clone()
+        } else {
+            entity.fields.iter().filter(|f| !f.hidden).map(|f| f.name.clone()).collect()
+        },
         filters: active_filters_raw,
         order_by: query.order_by.as_ref().map(|o| {
             let dir = if query.order_dir.as_deref() == Some("desc") {
@@ -403,6 +428,14 @@ async fn entity_list(
     let filter_field_defs = resolve_filter_fields(entity);
     let filter_fields_ctx = filter_fields_to_context(&filter_field_defs);
 
+    let export_columns: Vec<(String, String)> = columns.iter().map(|c| {
+        let label = entity.fields.iter()
+            .find(|f| f.name.as_str() == c.as_str())
+            .map(|f| f.label.clone())
+            .unwrap_or_else(|| crate::field::default_label(c));
+        (c.clone(), label)
+    }).collect();
+
     let ctx = ListContext {
         admin_title: state.title.clone(),
         entities: entity_refs(&state),
@@ -422,6 +455,8 @@ async fn entity_list(
                     crate::entity::ActionTarget::Detail => "detail".to_string(),
                 },
                 confirm: a.confirm.clone(),
+                icon: a.icon.clone(),
+                class: a.class.clone(),
             })
             .collect(),
         search: query.search.unwrap_or_default(),
@@ -431,6 +466,9 @@ async fn entity_list(
         order_dir: query.order_dir.unwrap_or_else(|| "asc".to_string()),
         filter_fields: filter_fields_ctx,
         active_filters,
+        bulk_delete: entity.bulk_delete,
+        bulk_export: entity.bulk_export,
+        export_columns,
         flash_success: None,
         flash_error: None,
     };
@@ -687,11 +725,6 @@ async fn entity_action(
         None => return (axum::http::StatusCode::NOT_FOUND, "Entity not found").into_response(),
     };
 
-    let action = match entity.actions.iter().find(|a| a.name == action_name) {
-        Some(a) => a,
-        None => return (axum::http::StatusCode::NOT_FOUND, "Action not found").into_response(),
-    };
-
     // Parse repeated form fields manually (serde_urlencoded doesn't support Vec for repeated keys)
     let pairs: Vec<(String, String)> = form_urlencoded::parse(&body)
         .map(|(k, v)| (k.into_owned(), v.into_owned()))
@@ -700,6 +733,91 @@ async fn entity_action(
         .filter(|(k, _)| k == "selected_ids")
         .map(|(_, v)| v.clone())
         .collect();
+
+    // Built-in bulk delete
+    if action_name == "__bulk_delete__" {
+        if !entity.bulk_delete {
+            return (axum::http::StatusCode::FORBIDDEN, "Bulk delete is disabled").into_response();
+        }
+        let adapter = match &entity.adapter {
+            Some(a) => a,
+            None => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "No adapter").into_response(),
+        };
+        let mut deleted = 0u64;
+        for sid in &selected_ids {
+            let id_val = Value::String(sid.clone());
+            if adapter.delete(&id_val).await.is_ok() {
+                if let Some(hook) = &entity.after_delete {
+                    let _ = hook(&id_val);
+                }
+                deleted += 1;
+            }
+        }
+        use crate::render::context::FlashContext;
+        let html = state.renderer.render("flash.html", FlashContext {
+            success: Some(format!("{} record(s) deleted.", deleted)),
+            error: None,
+        });
+        return (StatusCode::OK, [("HX-Refresh", "true")], Html(html)).into_response();
+    }
+
+    // Built-in bulk export
+    if action_name == "__bulk_export__" {
+        if !entity.bulk_export {
+            return (axum::http::StatusCode::FORBIDDEN, "Bulk export is disabled").into_response();
+        }
+        let adapter = match &entity.adapter {
+            Some(a) => a,
+            None => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "No adapter").into_response(),
+        };
+        let export_fields: Vec<String> = pairs.iter()
+            .filter(|(k, _)| k == "export_fields")
+            .map(|(_, v)| v.clone())
+            .collect();
+
+        let mut csv = String::new();
+        // Header row
+        csv.push_str(&export_fields.join(","));
+        csv.push('\n');
+
+        // Fetch each record and build rows
+        for sid in &selected_ids {
+            let id_val = Value::String(sid.clone());
+            if let Ok(record) = adapter.get(&id_val).await {
+                let row: Vec<String> = export_fields.iter().map(|f| {
+                    let raw = record.get(f).map(value_to_string).unwrap_or_default();
+                    // Quote fields that contain commas, quotes, or newlines
+                    if raw.contains(',') || raw.contains('"') || raw.contains('\n') {
+                        format!("\"{}\"", raw.replace('"', "\"\""))
+                    } else {
+                        raw
+                    }
+                }).collect();
+                csv.push_str(&row.join(","));
+                csv.push('\n');
+            }
+        }
+
+        let filename = format!("{}_export.csv", entity_name);
+        let disposition = format!("attachment; filename=\"{}\"", filename);
+        let mut response = axum::response::Response::new(axum::body::Body::from(csv));
+        *response.status_mut() = StatusCode::OK;
+        response.headers_mut().insert(
+            header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("text/csv; charset=utf-8"),
+        );
+        response.headers_mut().insert(
+            header::CONTENT_DISPOSITION,
+            axum::http::HeaderValue::from_str(&disposition).unwrap(),
+        );
+        return response;
+    }
+
+    let action = match entity.actions.iter().find(|a| a.name == action_name) {
+        Some(a) => a,
+        None => return (axum::http::StatusCode::NOT_FOUND, "Action not found").into_response(),
+    };
+
     let id: Option<String> = pairs.iter()
         .find(|(k, _)| k == "id")
         .map(|(_, v)| v.clone());
@@ -756,8 +874,12 @@ impl AdminApp {
         let (auth, state) = self.into_state();
 
         let protected = Router::new()
+            .route("/admin", get(|| async { Redirect::permanent("/admin/") }))
             .route("/admin/", get(admin_home))
             .route("/admin/logout", get(logout))
+            .route("/admin/:entity", get(|Path(e): Path<String>| async move {
+                Redirect::permanent(&format!("/admin/{}/", e))
+            }))
             .route("/admin/:entity/", get(entity_list))
             .route("/admin/:entity/new", get(entity_create_form))
             .route("/admin/:entity/new", post(entity_create_submit))
