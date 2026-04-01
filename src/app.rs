@@ -1,5 +1,18 @@
-use crate::{auth::AdminAuth, entity::EntityAdmin, render::AdminRenderer};
+use crate::{auth::AdminAuth, entity::{EntityAdmin, EntityGroupAdmin}, render::AdminRenderer};
 use std::{path::PathBuf, sync::Arc};
+
+pub enum AdminEntry {
+    Entity(EntityAdmin),
+    Group(EntityGroupAdmin),
+}
+
+impl From<EntityAdmin> for AdminEntry {
+    fn from(e: EntityAdmin) -> Self { AdminEntry::Entity(e) }
+}
+
+impl From<EntityGroupAdmin> for AdminEntry {
+    fn from(g: EntityGroupAdmin) -> Self { AdminEntry::Group(g) }
+}
 
 pub struct AdminAppState {
     pub title: String,
@@ -48,8 +61,11 @@ impl AdminApp {
         self
     }
 
-    pub fn register(mut self, entity: EntityAdmin) -> Self {
-        self.entities.push(entity);
+    pub fn register(mut self, entry: impl Into<AdminEntry>) -> Self {
+        match entry.into() {
+            AdminEntry::Entity(e) => self.entities.push(e),
+            AdminEntry::Group(g) => self.entities.extend(g.into_entities()),
+        }
         self
     }
 

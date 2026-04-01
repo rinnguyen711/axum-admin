@@ -255,3 +255,44 @@ impl EntityAdmin {
         self
     }
 }
+
+/// A named group of entities that renders as a collapsible section in the sidebar.
+/// Register it with `AdminApp::register()` the same way as a plain `EntityAdmin`.
+pub struct EntityGroupAdmin {
+    pub label: String,
+    pub icon: Option<String>,
+    entities: Vec<EntityAdmin>,
+}
+
+impl EntityGroupAdmin {
+    pub fn new(label: &str) -> Self {
+        Self {
+            label: label.to_string(),
+            icon: None,
+            entities: Vec::new(),
+        }
+    }
+
+    /// Optional Font Awesome icon shown next to the group label in the sidebar.
+    pub fn icon(mut self, icon: &str) -> Self {
+        self.icon = Some(icon.to_string());
+        self
+    }
+
+    /// Add an entity to this group.
+    pub fn register(mut self, entity: EntityAdmin) -> Self {
+        self.entities.push(entity);
+        self
+    }
+
+    /// Consume the group and return its entities with the group label stamped on each.
+    pub(crate) fn into_entities(self) -> Vec<EntityAdmin> {
+        self.entities
+            .into_iter()
+            .map(|mut e| {
+                e.group = Some(self.label.clone());
+                e
+            })
+            .collect()
+    }
+}
