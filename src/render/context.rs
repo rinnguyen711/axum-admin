@@ -1,10 +1,26 @@
 use serde::Serialize;
 use std::collections::HashMap;
 
+/// A sidebar navigation entry — either a standalone entity link or a named
+/// group containing child entity links.
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum NavItem {
+    Entity(EntityRef),
+    Group {
+        label: String,
+        entities: Vec<EntityRef>,
+        /// true when any child entity is currently active — used to auto-open the accordion
+        active: bool,
+    },
+}
+
 #[derive(Serialize)]
 pub struct EntityRef {
     pub name: String,
     pub label: String,
+    pub icon: String,
+    pub group: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -40,7 +56,9 @@ pub struct ActionContext {
 #[derive(Serialize)]
 pub struct ListContext {
     pub admin_title: String,
+    pub admin_icon: String,
     pub entities: Vec<EntityRef>,
+    pub nav: Vec<NavItem>,
     pub current_entity: String,
     pub entity_name: String,
     pub entity_label: String,
@@ -64,7 +82,9 @@ pub struct ListContext {
 #[derive(Serialize)]
 pub struct FormContext {
     pub admin_title: String,
+    pub admin_icon: String,
     pub entities: Vec<EntityRef>,
+    pub nav: Vec<NavItem>,
     pub current_entity: String,
     pub entity_name: String,
     pub entity_label: String,

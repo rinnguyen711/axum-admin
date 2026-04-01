@@ -7,21 +7,30 @@ use crate::{category, post};
 pub fn build(db: DatabaseConnection) -> Router {
     AdminApp::new()
         .title("Blog Admin")
+        .icon("fa-solid fa-newspaper")
         .prefix("/admin")
+        // Load custom templates from this directory — any .html file here
+        // overrides the built-in with the same name.
+        // e.g. templates/home.html replaces the default dashboard.
+        .template_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/templates"))
         .auth(Box::new(
             DefaultAdminAuth::new().add_user("admin", "admin"),
         ))
         .register(
             EntityAdmin::from_entity::<category::Entity>("categories")
                 .label("Categories")
+                .icon("fa-solid fa-folder")
+                .group("Blog")
                 .list_display(vec!["id".to_string(), "name".to_string()])
                 .search_fields(vec!["name".to_string()])
-                .filter_fields(vec!["name".to_string()])
+                // .filter_fields(vec!["name".to_string()])
                 .adapter(Box::new(SeaOrmAdapter::<category::Entity>::new(db.clone()))),
         )
         .register(
             EntityAdmin::from_entity::<post::Entity>("posts")
                 .label("Posts")
+                .icon("fa-solid fa-file-lines")
+                .group("Blog")
                 .field(
                     Field::foreign_key(
                         "category_id",

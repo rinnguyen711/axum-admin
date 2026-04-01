@@ -4,7 +4,7 @@ use crate::{
     middleware::{require_auth, SESSION_COOKIE},
     render::context::{
         ActionContext as ActionCtx, EntityRef, FieldContext, FormContext, ListContext, LoginContext,
-        RowContext,
+        NavItem, RowContext,
     },
 };
 use axum::{
@@ -59,6 +59,45 @@ struct ListQuery {
 }
 
 // --- Helpers ---
+/// Build the sidebar nav structure: ungrouped entities are top-level `NavItem::Entity`;
+/// grouped entities are collected into `NavItem::Group` in first-seen order.
+/// `current_entity` is used to mark the active group as open.
+fn build_nav(state: &AdminAppState, current_entity: &str) -> Vec<NavItem> {
+    let mut nav: Vec<NavItem> = Vec::new();
+    let mut group_indices: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+    for e in &state.entities {
+        let entity_ref = EntityRef {
+            name: e.entity_name.clone(),
+            label: e.label.clone(),
+            icon: e.icon.clone(),
+            group: e.group.clone(),
+        };
+        match &e.group {
+            None => nav.push(NavItem::Entity(entity_ref)),
+            Some(group_label) => {
+                if let Some(&idx) = group_indices.get(group_label) {
+                    if let Some(NavItem::Group { entities, active, .. }) = nav.get_mut(idx) {
+                        if e.entity_name == current_entity {
+                            *active = true;
+                        }
+                        entities.push(entity_ref);
+                    }
+                } else {
+                    let is_active = e.entity_name == current_entity;
+                    group_indices.insert(group_label.clone(), nav.len());
+                    nav.push(NavItem::Group {
+                        label: group_label.clone(),
+                        entities: vec![entity_ref],
+                        active: is_active,
+                    });
+                }
+            }
+        }
+    }
+    nav
+}
+
 fn entity_refs(state: &AdminAppState) -> Vec<EntityRef> {
     state
         .entities
@@ -66,6 +105,8 @@ fn entity_refs(state: &AdminAppState) -> Vec<EntityRef> {
         .map(|e| EntityRef {
             name: e.entity_name.clone(),
             label: e.label.clone(),
+            icon: e.icon.clone(),
+            group: e.group.clone(),
         })
         .collect()
 }
@@ -228,7 +269,9 @@ async fn render_form_error(
         .collect();
     let ctx = FormContext {
         admin_title: state.title.clone(),
+        admin_icon: state.icon.clone(),
         entities: entity_refs(state),
+        nav: build_nav(state, entity_name),
         current_entity: entity_name.to_string(),
         entity_name: entity_name.to_string(),
         entity_label: entity.label.clone(),
@@ -334,17 +377,18 @@ async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) -> Html<Str
     #[derive(Serialize)]
     struct HomeContext {
         admin_title: String,
+        admin_icon: String,
         entities: Vec<EntityRef>,
+        nav: Vec<NavItem>,
         current_entity: String,
         flash_success: Option<String>,
         flash_error: Option<String>,
     }
     let ctx = HomeContext {
         admin_title: state.title.clone(),
-        entities: state.entities.iter().map(|e| EntityRef {
-            name: e.entity_name.clone(),
-            label: e.label.clone(),
-        }).collect(),
+        admin_icon: state.icon.clone(),
+        entities: entity_refs(&state),
+        nav: build_nav(&state, ""),
         current_entity: String::new(),
         flash_success: None,
         flash_error: None,
@@ -438,7 +482,9 @@ async fn entity_list(
 
     let ctx = ListContext {
         admin_title: state.title.clone(),
+        admin_icon: state.icon.clone(),
         entities: entity_refs(&state),
+        nav: build_nav(&state, &entity_name),
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
@@ -491,7 +537,9 @@ async fn entity_create_form(
     let csrf_token = get_or_create_csrf(&cookies);
     let ctx = FormContext {
         admin_title: state.title.clone(),
+        admin_icon: state.icon.clone(),
         entities: entity_refs(&state),
+        nav: build_nav(&state, &entity_name),
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
@@ -546,7 +594,9 @@ async fn entity_create_submit(
         Err(crate::error::AdminError::ValidationError(errs)) => {
             let ctx = FormContext {
                 admin_title: state.title.clone(),
+                admin_icon: state.icon.clone(),
                 entities: entity_refs(&state),
+                nav: build_nav(&state, &entity_name),
                 current_entity: entity_name.clone(),
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),
@@ -600,7 +650,9 @@ async fn entity_edit_form(
     let csrf_token = get_or_create_csrf(&cookies);
     let ctx = FormContext {
         admin_title: state.title.clone(),
+        admin_icon: state.icon.clone(),
         entities: entity_refs(&state),
+        nav: build_nav(&state, &entity_name),
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
@@ -655,7 +707,9 @@ async fn entity_edit_submit(
         Err(crate::error::AdminError::ValidationError(errs)) => {
             let ctx = FormContext {
                 admin_title: state.title.clone(),
+                admin_icon: state.icon.clone(),
                 entities: entity_refs(&state),
+                nav: build_nav(&state, &entity_name),
                 current_entity: entity_name.clone(),
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),

@@ -38,21 +38,41 @@
 
   <!-- Sidebar -->
   <aside class="w-64 shrink-0 bg-zinc-50 border-r border-zinc-200 flex flex-col py-6 px-4 h-screen overflow-y-auto">
-    <div class="flex items-center gap-3 px-2 mb-8">
-      <div class="w-8 h-8 bg-black rounded-md flex items-center justify-center">
-        <i class="fa-solid fa-bolt text-white text-xs"></i>
+    <a href="/admin/" class="flex items-center gap-3 px-2 mb-8 group">
+      <div class="w-8 h-8 bg-black rounded-md flex items-center justify-center group-hover:bg-zinc-700 transition-colors">
+        <i class="{{ admin_icon }} text-white text-xs"></i>
       </div>
-      <span class="text-sm font-bold tracking-tight text-zinc-900">{{ admin_title }}</span>
-    </div>
+      <span class="text-sm font-bold tracking-tight text-zinc-900 group-hover:text-zinc-600 transition-colors">{{ admin_title }}</span>
+    </a>
 
     <nav class="flex-1 space-y-1">
-      {% for entity in entities %}
-      <a href="/admin/{{ entity.name }}/"
-         class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
-                {% if current_entity == entity.name %}bg-zinc-200/60 text-zinc-900 font-semibold{% else %}text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100{% endif %}">
-        <i class="fa-solid fa-layer-group text-xs w-4"></i>
-        {{ entity.label }}
-      </a>
+      {% for item in nav %}
+        {% if item.type == "entity" %}
+        <a href="/admin/{{ item.name }}/"
+           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+                  {% if current_entity == item.name %}bg-zinc-200/60 text-zinc-900 font-semibold{% else %}text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100{% endif %}">
+          <i class="{{ item.icon }} text-xs w-4"></i>
+          {{ item.label }}
+        </a>
+        {% elif item.type == "group" %}
+        <div x-data="{ open: {{ 'true' if item.active else 'false' }} }" class="space-y-0.5">
+          <button @click="open = !open"
+                  class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold uppercase tracking-wider text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <span>{{ item.label }}</span>
+            <i class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
+          </button>
+          <div x-show="open" class="space-y-0.5">
+            {% for child in item.entities %}
+            <a href="/admin/{{ child.name }}/"
+               class="flex items-center gap-3 pl-6 pr-3 py-2 rounded-md text-sm font-medium transition-colors
+                      {% if current_entity == child.name %}bg-zinc-200/60 text-zinc-900 font-semibold{% else %}text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100{% endif %}">
+              <i class="{{ child.icon }} text-xs w-4"></i>
+              {{ child.label }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       {% endfor %}
     </nav>
 

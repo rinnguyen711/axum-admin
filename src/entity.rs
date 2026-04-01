@@ -34,6 +34,8 @@ pub struct CustomAction {
     pub label: String,
     pub target: ActionTarget,
     pub confirm: Option<String>,
+    pub icon: Option<String>,
+    pub class: Option<String>,
     pub handler: ActionHandler,
 }
 
@@ -44,6 +46,8 @@ impl CustomAction {
             label: label.to_string(),
             target: ActionTarget::List,
             confirm: None,
+            icon: None,
+            class: None,
         }
     }
 }
@@ -53,6 +57,8 @@ pub struct CustomActionBuilder {
     label: String,
     target: ActionTarget,
     confirm: Option<String>,
+    icon: Option<String>,
+    class: Option<String>,
 }
 
 impl CustomActionBuilder {
@@ -66,6 +72,16 @@ impl CustomActionBuilder {
         self
     }
 
+    pub fn icon(mut self, icon_class: &str) -> Self {
+        self.icon = Some(icon_class.to_string());
+        self
+    }
+
+    pub fn class(mut self, css_class: &str) -> Self {
+        self.class = Some(css_class.to_string());
+        self
+    }
+
     pub fn handler<F, Fut>(self, f: F) -> CustomAction
     where
         F: Fn(ActionContext) -> Fut + Send + Sync + 'static,
@@ -76,6 +92,8 @@ impl CustomActionBuilder {
             label: self.label,
             target: self.target,
             confirm: self.confirm,
+            icon: self.icon,
+            class: self.class,
             handler: Box::new(move |ctx| Box::pin(f(ctx))),
         }
     }
@@ -84,12 +102,16 @@ impl CustomActionBuilder {
 pub struct EntityAdmin {
     pub entity_name: String,
     pub label: String,
+    pub icon: String,
+    pub group: Option<String>,
     pub fields: Vec<Field>,
     pub list_display: Vec<String>,
     pub search_fields: Vec<String>,
     pub filter_fields: Vec<String>,
     pub filters: Vec<Field>,
     pub actions: Vec<CustomAction>,
+    pub bulk_delete: bool,
+    pub bulk_export: bool,
     pub adapter: Option<Box<dyn DataAdapter>>,
     pub before_save: Option<BeforeSaveHook>,
     pub after_delete: Option<AfterDeleteHook>,
@@ -101,12 +123,16 @@ impl EntityAdmin {
         Self {
             entity_name: _entity.to_string(),
             label: crate::field::default_label(_entity),
+            icon: "fa-solid fa-layer-group".to_string(),
+            group: None,
             fields: Vec::new(),
             list_display: Vec::new(),
             search_fields: Vec::new(),
             filter_fields: Vec::new(),
             filters: Vec::new(),
             actions: Vec::new(),
+            bulk_delete: true,
+            bulk_export: true,
             adapter: None,
             before_save: None,
             after_delete: None,
@@ -124,12 +150,16 @@ impl EntityAdmin {
         Self {
             entity_name: name.to_string(),
             label: crate::field::default_label(name),
+            icon: "fa-solid fa-layer-group".to_string(),
+            group: None,
             fields,
             list_display: Vec::new(),
             search_fields: Vec::new(),
             filter_fields: Vec::new(),
             filters: Vec::new(),
             actions: Vec::new(),
+            bulk_delete: true,
+            bulk_export: true,
             adapter: None,
             before_save: None,
             after_delete: None,
@@ -139,6 +169,20 @@ impl EntityAdmin {
 
     pub fn label(mut self, label: &str) -> Self {
         self.label = label.to_string();
+        self
+    }
+
+    /// Set the Font Awesome icon class for this entity in the sidebar and dashboard.
+    /// Defaults to `"fa-solid fa-layer-group"`.
+    pub fn icon(mut self, icon: &str) -> Self {
+        self.icon = icon.to_string();
+        self
+    }
+
+    /// Assign this entity to a named sidebar group. Entities sharing the same
+    /// group label are collapsed under a single expandable section.
+    pub fn group(mut self, group: &str) -> Self {
+        self.group = Some(group.to_string());
         self
     }
 
@@ -172,6 +216,16 @@ impl EntityAdmin {
         } else {
             self.filters.push(field);
         }
+        self
+    }
+
+    pub fn bulk_delete(mut self, enabled: bool) -> Self {
+        self.bulk_delete = enabled;
+        self
+    }
+
+    pub fn bulk_export(mut self, enabled: bool) -> Self {
+        self.bulk_export = enabled;
         self
     }
 
