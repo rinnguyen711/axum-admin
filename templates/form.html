@@ -23,6 +23,7 @@
   {% endif %}
   <form method="post"
         action="{% if is_create %}/admin/{{ entity_name }}/new{% else %}/admin/{{ entity_name }}/{{ record_id }}/{% endif %}"
+        enctype="multipart/form-data"
         class="space-y-5">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
 
@@ -134,6 +135,32 @@
       <textarea name="{{ field.name }}" rows="6"
                 {% if field.readonly %}readonly{% endif %}
                 class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}">{{ values[field.name] | default('') }}</textarea>
+
+      {% elif field.field_type == "File" %}
+      {% if values[field.name] %}
+      <div class="mb-1 flex items-center gap-3 text-sm text-zinc-600">
+        <a href="{{ values[field.name] }}" target="_blank" class="underline hover:text-zinc-900">
+          {{ values[field.name] | basename }}
+        </a>
+        <label class="flex items-center gap-1 text-zinc-500 cursor-pointer">
+          <input type="checkbox" name="{{ field.name }}__clear" value="on"> Clear
+        </label>
+      </div>
+      {% endif %}
+      <input type="file" name="{{ field.name }}"
+             class="block w-full text-sm text-zinc-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md p-1">
+
+      {% elif field.field_type == "Image" %}
+      {% if values[field.name] %}
+      <div class="mb-1 flex items-center gap-3">
+        <img src="{{ values[field.name] }}" class="h-24 w-auto rounded object-cover border border-zinc-200" alt="">
+        <label class="flex items-center gap-1 text-sm text-zinc-500 cursor-pointer">
+          <input type="checkbox" name="{{ field.name }}__clear" value="on"> Clear
+        </label>
+      </div>
+      {% endif %}
+      <input type="file" name="{{ field.name }}" accept="image/*"
+             class="block w-full text-sm text-zinc-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md p-1">
       {% endif %}
 
       {% if field.help_text %}
