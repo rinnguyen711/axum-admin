@@ -31,6 +31,16 @@ pub fn build(db: DatabaseConnection) -> Router {
                         .label("Posts")
                         .icon("fa-solid fa-file-lines")
                         .field(
+                            Field::text("title")
+                                .required()
+                                .min_length(3)
+                                .max_length(255)
+                        )
+                        .field(
+                            Field::textarea("body")
+                                .max_length(10000)
+                        )
+                        .field(
                             Field::foreign_key(
                                 "category_id",
                                 "Category",
