@@ -1,4 +1,5 @@
 use std::fmt;
+use std::sync::Arc;
 
 impl fmt::Debug for dyn crate::validator::Validator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -47,6 +48,14 @@ pub enum FieldType {
     ManyToMany {
         adapter: Box<dyn crate::adapter::ManyToManyAdapter>,
     },
+    File {
+        storage: Arc<dyn crate::storage::FileStorage>,
+        accept: Vec<String>, // empty = any type accepted
+    },
+    Image {
+        storage: Arc<dyn crate::storage::FileStorage>,
+        // accept is always image/*, validated server-side
+    },
     Json,
     Custom(Box<dyn Widget>),
 }
@@ -68,6 +77,8 @@ impl std::fmt::Debug for FieldType {
                 write!(f, "ForeignKey {{ value_field: {value_field:?}, label_field: {label_field:?}, limit: {limit:?}, order_by: {order_by:?} }}")
             }
             FieldType::ManyToMany { .. } => write!(f, "ManyToMany(..)"),
+            FieldType::File { accept, .. } => write!(f, "File(accept: {:?})", accept),
+            FieldType::Image { .. } => write!(f, "Image"),
             FieldType::Json => write!(f, "Json"),
             FieldType::Custom(_) => write!(f, "Custom(..)"),
         }
@@ -158,6 +169,14 @@ impl Field {
 
     pub fn many_to_many(name: &str, adapter: Box<dyn crate::adapter::ManyToManyAdapter>) -> Self {
         Self::new(name, FieldType::ManyToMany { adapter })
+    }
+
+    pub fn file(name: &str, storage: Arc<dyn crate::storage::FileStorage>) -> Self {
+        Self::new(name, FieldType::File { storage, accept: vec![] })
+    }
+
+    pub fn image(name: &str, storage: Arc<dyn crate::storage::FileStorage>) -> Self {
+        Self::new(name, FieldType::Image { storage })
     }
 
     // Modifiers — all consume self and return Self for chaining

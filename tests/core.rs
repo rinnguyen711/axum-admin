@@ -272,6 +272,29 @@ fn entity_admin_filter_appends_new_name() {
     assert_eq!(entity.filters[1].name, "category_id");
 }
 
+#[test]
+fn field_file_constructor() {
+    use std::sync::Arc;
+    use axum_admin::{LocalStorage, FieldType};
+
+    let storage = Arc::new(LocalStorage::new("/tmp", "/media"));
+    let f = axum_admin::Field::file("attachment", storage.clone());
+    assert_eq!(f.name, "attachment");
+    assert_eq!(f.label, "Attachment");
+    assert!(matches!(f.field_type, FieldType::File { .. }));
+}
+
+#[test]
+fn field_image_constructor() {
+    use std::sync::Arc;
+    use axum_admin::{LocalStorage, FieldType};
+
+    let storage = Arc::new(LocalStorage::new("/tmp", "/media"));
+    let f = axum_admin::Field::image("avatar", storage.clone());
+    assert_eq!(f.name, "avatar");
+    assert!(matches!(f.field_type, FieldType::Image { .. }));
+}
+
 use axum_admin::AdminApp;
 
 #[tokio::test]

@@ -203,6 +203,8 @@ pub(super) async fn fields_to_context(
                 ("ManyToMany".to_string(), options, selected_ids)
             }
             FieldType::Custom(_) => ("Text".to_string(), vec![], vec![]),
+            FieldType::File { .. } => ("File".to_string(), vec![], vec![]),
+            FieldType::Image { .. } => ("Image".to_string(), vec![], vec![]),
         };
         result.push(FieldContext {
             name: f.name.clone(),
