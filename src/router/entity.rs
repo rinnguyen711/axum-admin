@@ -126,6 +126,21 @@ pub(super) async fn entity_list(
             .collect()
     };
 
+    let column_types: HashMap<String, String> = {
+        use crate::field::FieldType;
+        columns.iter().map(|col| {
+            let ft = entity.fields.iter()
+                .find(|f| f.name.as_str() == col.as_str())
+                .map(|f| match &f.field_type {
+                    FieldType::Image { .. } => "Image",
+                    FieldType::File { .. } => "File",
+                    _ => "Text",
+                })
+                .unwrap_or("Text");
+            (col.clone(), ft.to_string())
+        }).collect()
+    };
+
     let filter_field_defs = resolve_filter_fields(entity);
     let filter_fields_ctx = filter_fields_to_context(&filter_field_defs);
 
@@ -146,6 +161,7 @@ pub(super) async fn entity_list(
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
         columns,
+        column_types,
         rows: rows.iter().map(row_to_context).collect(),
         actions: entity
             .actions

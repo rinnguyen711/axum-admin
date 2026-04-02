@@ -65,6 +65,7 @@ pub struct ListContext {
     pub entity_name: String,
     pub entity_label: String,
     pub columns: Vec<String>,
+    pub column_types: HashMap<String, String>,
     pub rows: Vec<RowContext>,
     pub actions: Vec<ActionContext>,
     pub search: String,
