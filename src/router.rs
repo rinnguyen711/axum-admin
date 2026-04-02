@@ -315,6 +315,52 @@ async fn save_m2m(
     }
 }
 
+/// Run all synchronous validators on the submitted data.
+/// Returns a map of field_name -> first error message. Empty = no errors.
+fn validate_fields(
+    fields: &[crate::field::Field],
+    data: &HashMap<String, Value>,
+) -> HashMap<String, String> {
+    let mut errors: HashMap<String, String> = HashMap::new();
+    for field in fields {
+        if field.validators.is_empty() { continue; }
+        let value = data.get(&field.name)
+            .and_then(|v| if let Value::String(s) = v { Some(s.as_str()) } else { None })
+            .unwrap_or("");
+        for validator in &field.validators {
+            if let Err(msg) = validator.validate(value) {
+                errors.insert(field.name.clone(), msg);
+                break; // first error per field only
+            }
+        }
+    }
+    errors
+}
+
+/// Run all async validators on the submitted data.
+/// `record_id` is `Some` on edit (to exclude current record from uniqueness checks).
+async fn validate_fields_async(
+    fields: &[crate::field::Field],
+    data: &HashMap<String, Value>,
+    record_id: Option<&Value>,
+) -> HashMap<String, String> {
+    let mut errors: HashMap<String, String> = HashMap::new();
+    for field in fields {
+        if field.async_validators.is_empty() { continue; }
+        if errors.contains_key(&field.name) { continue; }
+        let value = data.get(&field.name)
+            .and_then(|v| if let Value::String(s) = v { Some(s.as_str()) } else { None })
+            .unwrap_or("");
+        for validator in &field.async_validators {
+            if let Err(msg) = validator.validate(value, record_id).await {
+                errors.insert(field.name.clone(), msg);
+                break;
+            }
+        }
+    }
+    errors
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn render_form_error(
     state: &AdminAppState,
@@ -653,6 +699,19 @@ async fn entity_create_submit(
     // Extract ManyToMany fields from data — they are not columns on the main table.
     let m2m_data = extract_m2m_data(&entity.fields, &mut data);
 
+    // Run declarative field validators (sync first, then async).
+    let mut field_errors = validate_fields(&entity.fields, &data);
+    if field_errors.is_empty() {
+        let async_errors = validate_fields_async(&entity.fields, &data, None).await;
+        field_errors.extend(async_errors);
+    }
+    if !field_errors.is_empty() {
+        return render_form_error(
+            &state, entity, &entity_name, "",
+            data, crate::error::AdminError::ValidationError(field_errors), true, csrf_token,
+        ).await.into_response();
+    }
+
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
             return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token).await
@@ -773,6 +832,20 @@ async fn entity_edit_submit(
     // Extract ManyToMany fields from data — they are not columns on the main table.
     let m2m_data = extract_m2m_data(&entity.fields, &mut data);
 
+    // Run declarative field validators (sync first, then async).
+    let record_id_val = Value::String(id.clone());
+    let mut field_errors = validate_fields(&entity.fields, &data);
+    if field_errors.is_empty() {
+        let async_errors = validate_fields_async(&entity.fields, &data, Some(&record_id_val)).await;
+        field_errors.extend(async_errors);
+    }
+    if !field_errors.is_empty() {
+        return render_form_error(
+            &state, entity, &entity_name, &id,
+            data, crate::error::AdminError::ValidationError(field_errors), false, csrf_token,
+        ).await.into_response();
+    }
+
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
             return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token).await
@@ -780,10 +853,9 @@ async fn entity_edit_submit(
         }
     }
 
-    let record_id = Value::String(id.clone());
-    match adapter.update(&record_id, data).await {
+    match adapter.update(&record_id_val, data).await {
         Ok(_) => {
-            save_m2m(&entity.fields, &record_id, m2m_data).await;
+            save_m2m(&entity.fields, &record_id_val, m2m_data).await;
             Redirect::to(&format!("/admin/{}/", entity_name)).into_response()
         }
         Err(crate::error::AdminError::ValidationError(errs)) => {
