@@ -1,491 +1,35 @@
 use crate::{
-    app::{AdminApp, AdminAppState},
-    auth::AdminAuth,
-    middleware::{require_auth, SESSION_COOKIE},
+    app::AdminAppState,
     render::context::{
-        ActionContext as ActionCtx, EntityRef, FieldContext, FormContext, ListContext, LoginContext,
-        NavItem, RowContext,
+        ActionContext as ActionCtx, FormContext, ListContext, NavItem,
     },
 };
 use axum::{
     extract::{Extension, Form, Path, Query, RawQuery},
     http::{header, header::LOCATION, StatusCode},
-    middleware,
     response::{Html, IntoResponse, Redirect, Response},
-    routing::{delete, get, post},
-    Router,
 };
-use form_urlencoded;
 use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::HashMap, sync::Arc};
-use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
+use tower_cookies::Cookies;
 
-const CSRF_COOKIE: &str = "axum_admin_csrf";
+use super::csrf::{get_or_create_csrf, validate_csrf};
+use super::helpers::{
+    build_nav, entity_refs, extract_m2m_data, fields_to_context, filter_fields_to_context,
+    parse_filters, render_form_error, resolve_filter_fields, row_to_context, save_m2m,
+    validate_fields, validate_fields_async, value_to_string,
+};
 
-fn generate_csrf_token() -> String {
-    uuid::Uuid::new_v4().to_string()
-}
-
-/// Returns the current CSRF token from the cookie, creating one if absent.
-fn get_or_create_csrf(cookies: &Cookies) -> String {
-    if let Some(c) = cookies.get(CSRF_COOKIE) {
-        return c.value().to_string();
-    }
-    let token = generate_csrf_token();
-    let mut cookie = Cookie::new(CSRF_COOKIE, token.clone());
-    cookie.set_http_only(true);
-    cookie.set_path("/admin");
-    cookies.add(cookie);
-    token
-}
-
-/// Validates the CSRF token from a submitted form against the cookie.
-/// Returns `true` if valid.
-fn validate_csrf(cookies: &Cookies, form_token: Option<&str>) -> bool {
-    match (cookies.get(CSRF_COOKIE), form_token) {
-        (Some(cookie), Some(form)) => !form.is_empty() && cookie.value() == form,
-        _ => false,
-    }
-}
-
-// --- Query params ---
 #[derive(Deserialize, Default)]
-struct ListQuery {
-    page: Option<u64>,
-    search: Option<String>,
-    order_by: Option<String>,
-    order_dir: Option<String>,
+pub(super) struct ListQuery {
+    pub(super) page: Option<u64>,
+    pub(super) search: Option<String>,
+    pub(super) order_by: Option<String>,
+    pub(super) order_dir: Option<String>,
 }
 
-// --- Helpers ---
-/// Build the sidebar nav structure: ungrouped entities are top-level `NavItem::Entity`;
-/// grouped entities are collected into `NavItem::Group` in first-seen order.
-/// `current_entity` is used to mark the active group as open.
-fn build_nav(state: &AdminAppState, current_entity: &str) -> Vec<NavItem> {
-    let mut nav: Vec<NavItem> = Vec::new();
-    let mut group_indices: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-
-    for e in &state.entities {
-        let entity_ref = EntityRef {
-            name: e.entity_name.clone(),
-            label: e.label.clone(),
-            icon: e.icon.clone(),
-            group: e.group.clone(),
-        };
-        match &e.group {
-            None => nav.push(NavItem::Entity(entity_ref)),
-            Some(group_label) => {
-                if let Some(&idx) = group_indices.get(group_label) {
-                    if let Some(NavItem::Group { entities, active, .. }) = nav.get_mut(idx) {
-                        if e.entity_name == current_entity {
-                            *active = true;
-                        }
-                        entities.push(entity_ref);
-                    }
-                } else {
-                    let is_active = e.entity_name == current_entity;
-                    group_indices.insert(group_label.clone(), nav.len());
-                    nav.push(NavItem::Group {
-                        label: group_label.clone(),
-                        entities: vec![entity_ref],
-                        active: is_active,
-                    });
-                }
-            }
-        }
-    }
-    nav
-}
-
-fn entity_refs(state: &AdminAppState) -> Vec<EntityRef> {
-    state
-        .entities
-        .iter()
-        .map(|e| EntityRef {
-            name: e.entity_name.clone(),
-            label: e.label.clone(),
-            icon: e.icon.clone(),
-            group: e.group.clone(),
-        })
-        .collect()
-}
-
-fn value_to_string(v: &Value) -> String {
-    match v {
-        Value::String(s) => s.clone(),
-        Value::Number(n) => n.to_string(),
-        Value::Bool(b) => b.to_string(),
-        Value::Null => String::new(),
-        other => other.to_string(),
-    }
-}
-
-fn row_to_context(row: &HashMap<String, Value>) -> RowContext {
-    let id = row.get("id").map(value_to_string).unwrap_or_default();
-    let data = row
-        .iter()
-        .map(|(k, v)| (k.clone(), value_to_string(v)))
-        .collect();
-    RowContext { id, data }
-}
-
-fn parse_filters(raw_query: Option<&str>) -> HashMap<String, Value> {
-    let mut filters = HashMap::new();
-    if let Some(q) = raw_query {
-        for (k, v) in form_urlencoded::parse(q.as_bytes()) {
-            if let Some(col) = k.strip_prefix("filter[").and_then(|s| s.strip_suffix("]")) {
-                if !v.is_empty() {
-                    filters.insert(col.to_string(), Value::String(v.into_owned()));
-                }
-            }
-        }
-    }
-    filters
-}
-
-fn resolve_filter_fields<'a>(entity: &'a crate::entity::EntityAdmin) -> Vec<&'a crate::field::Field> {
-    // Determine the base set of column names to generate filter inputs for.
-    // Priority: explicit filter_fields > list_display > all non-hidden fields.
-    let base_names: Vec<&str> = if !entity.filter_fields.is_empty() {
-        entity.filter_fields.iter().map(|s| s.as_str()).collect()
-    } else if !entity.list_display.is_empty() {
-        entity.list_display.iter().map(|s| s.as_str()).collect()
-    } else {
-        entity.fields.iter().filter(|f| !f.hidden).map(|f| f.name.as_str()).collect()
-    };
-
-    let mut result: Vec<&crate::field::Field> = base_names
-        .iter()
-        .filter_map(|name| entity.fields.iter().find(|f| f.name.as_str() == *name))
-        .collect();
-
-    // Upsert entity.filters (custom overrides) by name
-    for custom in &entity.filters {
-        if let Some(pos) = result.iter().position(|f| f.name == custom.name) {
-            result[pos] = custom;
-        } else {
-            result.push(custom);
-        }
-    }
-    result
-}
-
-fn filter_fields_to_context(fields: &[&crate::field::Field]) -> Vec<FieldContext> {
-    use crate::field::FieldType;
-    fields.iter().map(|f| {
-        let (type_str, options) = match &f.field_type {
-            FieldType::Select(opts) => ("Select".to_string(), opts.clone()),
-            FieldType::Boolean => ("Boolean".to_string(), vec![
-                ("true".to_string(), "Yes".to_string()),
-                ("false".to_string(), "No".to_string()),
-            ]),
-            _ => ("Text".to_string(), vec![]),
-        };
-        FieldContext {
-            name: f.name.clone(),
-            label: f.label.clone(),
-            field_type: type_str,
-            readonly: false,
-            hidden: false,
-            list_only: false,
-            form_only: false,
-            required: false,
-            help_text: None,
-            options,
-            selected_ids: vec![],
-        }
-    }).collect()
-}
-
-/// Build template context for a list of fields.
-///
-/// `submitted_values` — form values from a POST resubmission (used to restore
-///   ManyToMany selections when re-rendering a form after a validation error).
-/// `record_id` — the current record's ID (used to fetch ManyToMany selections
-///   from the DB when opening an edit form fresh).
-async fn fields_to_context(
-    fields: &[crate::field::Field],
-    submitted_values: &HashMap<String, String>,
-    record_id: Option<&Value>,
-) -> Vec<FieldContext> {
-    use crate::field::FieldType;
-    let mut result = Vec::with_capacity(fields.len());
-    for f in fields {
-        let (type_str, options, selected_ids) = match &f.field_type {
-            FieldType::Text => ("Text".to_string(), vec![], vec![]),
-            FieldType::TextArea => ("TextArea".to_string(), vec![], vec![]),
-            FieldType::Email => ("Email".to_string(), vec![], vec![]),
-            FieldType::Password => ("Password".to_string(), vec![], vec![]),
-            FieldType::Number => ("Number".to_string(), vec![], vec![]),
-            FieldType::Float => ("Float".to_string(), vec![], vec![]),
-            FieldType::Boolean => ("Boolean".to_string(), vec![], vec![]),
-            FieldType::Date => ("Date".to_string(), vec![], vec![]),
-            FieldType::DateTime => ("DateTime".to_string(), vec![], vec![]),
-            FieldType::Json => ("Json".to_string(), vec![], vec![]),
-            FieldType::Select(opts) => ("Select".to_string(), opts.clone(), vec![]),
-            FieldType::ForeignKey { adapter, value_field, label_field, limit, order_by } => {
-                let params = crate::adapter::ListParams {
-                    per_page: limit.unwrap_or(i64::MAX as u64),
-                    order_by: order_by.as_ref().map(|field| (field.clone(), crate::adapter::SortOrder::Asc)),
-                    ..Default::default()
-                };
-                let rows = adapter.list(params).await.unwrap_or_default();
-                let options = rows
-                    .iter()
-                    .filter_map(|row| {
-                        let value = row.get(value_field).map(value_to_string)?;
-                        let label = row.get(label_field).map(value_to_string).unwrap_or_else(|| value.clone());
-                        Some((value, label))
-                    })
-                    .collect();
-                ("Select".to_string(), options, vec![])
-            }
-            FieldType::ManyToMany { adapter } => {
-                let options = adapter.fetch_options().await.unwrap_or_default();
-                // Determine selected IDs: prefer submitted form values (error resubmission),
-                // fall back to fetching from the DB for the current record.
-                let selected_ids = if let Some(json_str) = submitted_values.get(&f.name) {
-                    serde_json::from_str::<Vec<String>>(json_str).unwrap_or_default()
-                } else if let Some(id) = record_id {
-                    adapter.fetch_selected(id).await.unwrap_or_default()
-                } else {
-                    vec![]
-                };
-                ("ManyToMany".to_string(), options, selected_ids)
-            }
-            FieldType::Custom(_) => ("Text".to_string(), vec![], vec![]),
-        };
-        result.push(FieldContext {
-            name: f.name.clone(),
-            label: f.label.clone(),
-            field_type: type_str,
-            readonly: f.readonly,
-            hidden: f.hidden,
-            list_only: f.list_only,
-            form_only: f.form_only,
-            required: f.required,
-            help_text: f.help_text.clone(),
-            options,
-            selected_ids,
-        });
-    }
-    result
-}
-
-/// Remove ManyToMany fields from the data map (they aren't DB columns on the main table)
-/// and return them as a vec of (field_name, selected_ids).
-fn extract_m2m_data(
-    fields: &[crate::field::Field],
-    data: &mut HashMap<String, Value>,
-) -> Vec<(String, Vec<String>)> {
-    use crate::field::FieldType;
-    fields
-        .iter()
-        .filter(|f| matches!(f.field_type, FieldType::ManyToMany { .. }))
-        .map(|f| {
-            let ids = data
-                .remove(&f.name)
-                .and_then(|v| {
-                    if let Value::String(s) = v {
-                        serde_json::from_str::<Vec<String>>(&s).ok()
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_default();
-            (f.name.clone(), ids)
-        })
-        .collect()
-}
-
-/// Save ManyToMany selections to the junction table for each M2M field.
-async fn save_m2m(
-    fields: &[crate::field::Field],
-    record_id: &Value,
-    m2m_data: Vec<(String, Vec<String>)>,
-) {
-    use crate::field::FieldType;
-    for (field_name, selected_ids) in m2m_data {
-        if let Some(field) = fields.iter().find(|f| f.name == field_name) {
-            if let FieldType::ManyToMany { adapter } = &field.field_type {
-                let _ = adapter.save(record_id, selected_ids).await;
-            }
-        }
-    }
-}
-
-/// Run all synchronous validators on the submitted data.
-/// Returns a map of field_name -> first error message. Empty = no errors.
-fn validate_fields(
-    fields: &[crate::field::Field],
-    data: &HashMap<String, Value>,
-) -> HashMap<String, String> {
-    let mut errors: HashMap<String, String> = HashMap::new();
-    for field in fields {
-        if field.validators.is_empty() { continue; }
-        let value = data.get(&field.name)
-            .and_then(|v| if let Value::String(s) = v { Some(s.as_str()) } else { None })
-            .unwrap_or("");
-        for validator in &field.validators {
-            if let Err(msg) = validator.validate(value) {
-                errors.insert(field.name.clone(), msg);
-                break; // first error per field only
-            }
-        }
-    }
-    errors
-}
-
-/// Run all async validators on the submitted data.
-/// `record_id` is `Some` on edit (to exclude current record from uniqueness checks).
-async fn validate_fields_async(
-    fields: &[crate::field::Field],
-    data: &HashMap<String, Value>,
-    record_id: Option<&Value>,
-) -> HashMap<String, String> {
-    let mut errors: HashMap<String, String> = HashMap::new();
-    for field in fields {
-        if field.async_validators.is_empty() { continue; }
-        if errors.contains_key(&field.name) { continue; }
-        let value = data.get(&field.name)
-            .and_then(|v| if let Value::String(s) = v { Some(s.as_str()) } else { None })
-            .unwrap_or("");
-        for validator in &field.async_validators {
-            if let Err(msg) = validator.validate(value, record_id).await {
-                errors.insert(field.name.clone(), msg);
-                break;
-            }
-        }
-    }
-    errors
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn render_form_error(
-    state: &AdminAppState,
-    entity: &crate::entity::EntityAdmin,
-    entity_name: &str,
-    record_id: &str,
-    form: HashMap<String, Value>,
-    err: crate::error::AdminError,
-    is_create: bool,
-    csrf_token: String,
-) -> Html<String> {
-    let errors = match err {
-        crate::error::AdminError::ValidationError(e) => e,
-        other => HashMap::from([("__all__".to_string(), other.to_string())]),
-    };
-    let values: HashMap<String, String> = form
-        .into_iter()
-        .map(|(k, v)| (k, value_to_string(&v)))
-        .collect();
-    let rid = if record_id.is_empty() { None } else { Some(Value::String(record_id.to_string())) };
-    let ctx = FormContext {
-        admin_title: state.title.clone(),
-        admin_icon: state.icon.clone(),
-        entities: entity_refs(state),
-        nav: build_nav(state, entity_name),
-        current_entity: entity_name.to_string(),
-        entity_name: entity_name.to_string(),
-        entity_label: entity.label.clone(),
-        fields: fields_to_context(&entity.fields, &values, rid.as_ref()).await,
-        values,
-        errors,
-        is_create,
-        record_id: record_id.to_string(),
-        csrf_token,
-        flash_success: None,
-        flash_error: None,
-    };
-    Html(state.renderer.render("form.html", ctx))
-}
-
-// --- Static assets ---
-async fn serve_htmx() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "application/javascript")],
-        include_str!("../static/htmx.min.js"),
-    )
-}
-
-async fn serve_alpine() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "application/javascript")],
-        include_str!("../static/alpine.min.js"),
-    )
-}
-
-async fn serve_admin_css() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "text/css")],
-        include_str!("../static/admin.css"),
-    )
-}
-
-// --- Login ---
-async fn login_page(
-    cookies: Cookies,
-    Query(query): Query<LoginQuery>,
-    Extension(state): Extension<Arc<AdminAppState>>,
-) -> Html<String> {
-    let csrf_token = get_or_create_csrf(&cookies);
-    let ctx = LoginContext {
-        admin_title: state.title.clone(),
-        error: None,
-        csrf_token,
-        next: query.next,
-    };
-    Html(state.renderer.render("login.html", ctx))
-}
-
-#[derive(Deserialize)]
-struct LoginQuery {
-    next: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct LoginForm {
-    username: String,
-    password: String,
-    next: Option<String>,
-}
-
-async fn login_submit(
-    cookies: Cookies,
-    Extension(auth): Extension<Arc<dyn AdminAuth>>,
-    Extension(state): Extension<Arc<AdminAppState>>,
-    Form(form): Form<LoginForm>,
-) -> Response {
-    let next = form.next.clone().filter(|s| s.starts_with('/'));
-    match auth.authenticate(&form.username, &form.password).await {
-        Ok(user) => {
-            // Rotate CSRF token on login
-            cookies.remove(Cookie::from(CSRF_COOKIE));
-            cookies.add(Cookie::new(SESSION_COOKIE, user.session_id));
-            let redirect_to = next.unwrap_or_else(|| "/admin/".to_string());
-            (StatusCode::FOUND, [(LOCATION, redirect_to)]).into_response()
-        }
-        Err(_) => {
-            let csrf_token = get_or_create_csrf(&cookies);
-            let ctx = LoginContext {
-                admin_title: state.title.clone(),
-                error: Some("Invalid username or password.".to_string()),
-                csrf_token,
-                next,
-            };
-            Html(state.renderer.render("login.html", ctx)).into_response()
-        }
-    }
-}
-
-async fn logout(cookies: Cookies) -> Redirect {
-    cookies.remove(Cookie::from(SESSION_COOKIE));
-    Redirect::to("/admin/login")
-}
-
-// --- Dashboard home ---
-async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) -> Html<String> {
+pub(super) async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) -> Html<String> {
     use crate::render::context::EntityRef;
     use serde::Serialize;
     #[derive(Serialize)]
@@ -510,8 +54,7 @@ async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) -> Html<Str
     Html(state.renderer.render("home.html", ctx))
 }
 
-// --- List ---
-async fn entity_list(
+pub(super) async fn entity_list(
     Path(entity_name): Path<String>,
     Query(query): Query<ListQuery>,
     RawQuery(raw_query): RawQuery,
@@ -637,8 +180,7 @@ async fn entity_list(
     Html(state.renderer.render(template, ctx)).into_response()
 }
 
-// --- Create ---
-async fn entity_create_form(
+pub(super) async fn entity_create_form(
     cookies: Cookies,
     Path(entity_name): Path<String>,
     Extension(state): Extension<Arc<AdminAppState>>,
@@ -669,7 +211,7 @@ async fn entity_create_form(
     Html(state.renderer.render("form.html", ctx)).into_response()
 }
 
-async fn entity_create_submit(
+pub(super) async fn entity_create_submit(
     cookies: Cookies,
     Path(entity_name): Path<String>,
     Extension(state): Extension<Arc<AdminAppState>>,
@@ -749,8 +291,7 @@ async fn entity_create_submit(
     }
 }
 
-// --- Edit ---
-async fn entity_edit_form(
+pub(super) async fn entity_edit_form(
     cookies: Cookies,
     Path((entity_name, id)): Path<(String, String)>,
     Extension(state): Extension<Arc<AdminAppState>>,
@@ -802,7 +343,7 @@ async fn entity_edit_form(
     Html(state.renderer.render("form.html", ctx)).into_response()
 }
 
-async fn entity_edit_submit(
+pub(super) async fn entity_edit_submit(
     cookies: Cookies,
     Path((entity_name, id)): Path<(String, String)>,
     Extension(state): Extension<Arc<AdminAppState>>,
@@ -883,8 +424,7 @@ async fn entity_edit_submit(
     }
 }
 
-// --- Delete ---
-async fn entity_delete(
+pub(super) async fn entity_delete(
     Path((entity_name, id)): Path<(String, String)>,
     headers: axum::http::HeaderMap,
     Extension(state): Extension<Arc<AdminAppState>>,
@@ -901,7 +441,6 @@ async fn entity_delete(
     };
 
     let id_val = Value::String(id.clone());
-
     let is_htmx = headers.contains_key("hx-request");
 
     match adapter.delete(&id_val).await {
@@ -923,8 +462,7 @@ async fn entity_delete(
     }
 }
 
-// --- Action ---
-async fn entity_action(
+pub(super) async fn entity_action(
     Path((entity_name, action_name)): Path<(String, String)>,
     Extension(state): Extension<Arc<AdminAppState>>,
     axum::extract::RawForm(body): axum::extract::RawForm,
@@ -1074,39 +612,5 @@ async fn entity_action(
             });
             Html(html).into_response()
         }
-    }
-}
-
-// --- Router assembly ---
-impl AdminApp {
-    pub fn into_router(self) -> Router {
-        let (auth, state) = self.into_state();
-
-        let protected = Router::new()
-            .route("/admin", get(|| async { Redirect::permanent("/admin/") }))
-            .route("/admin/", get(admin_home))
-            .route("/admin/logout", get(logout))
-            .route("/admin/:entity", get(|Path(e): Path<String>| async move {
-                Redirect::permanent(&format!("/admin/{}/", e))
-            }))
-            .route("/admin/:entity/", get(entity_list))
-            .route("/admin/:entity/new", get(entity_create_form))
-            .route("/admin/:entity/new", post(entity_create_submit))
-            .route("/admin/:entity/:id/", get(entity_edit_form))
-            .route("/admin/:entity/:id/", post(entity_edit_submit))
-            .route("/admin/:entity/:id/delete", delete(entity_delete))
-            .route("/admin/:entity/action/:action_name", post(entity_action))
-            .route_layer(middleware::from_fn(require_auth));
-
-        Router::new()
-            .route("/admin/login", get(login_page))
-            .route("/admin/login", post(login_submit))
-            .route("/admin/_static/htmx.min.js", get(serve_htmx))
-            .route("/admin/_static/alpine.min.js", get(serve_alpine))
-            .route("/admin/_static/admin.css", get(serve_admin_css))
-            .merge(protected)
-            .layer(Extension(state))
-            .layer(Extension(auth))
-            .layer(CookieManagerLayer::new())
     }
 }
