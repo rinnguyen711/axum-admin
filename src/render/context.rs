@@ -35,6 +35,8 @@ pub struct FieldContext {
     pub required: bool,
     pub help_text: Option<String>,
     pub options: Vec<(String, String)>,
+    /// Populated for ManyToMany fields: the IDs currently selected for this record.
+    pub selected_ids: Vec<String>,
 }
 
 #[derive(Serialize)]

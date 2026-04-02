@@ -193,26 +193,37 @@ fn filter_fields_to_context(fields: &[&crate::field::Field]) -> Vec<FieldContext
             required: false,
             help_text: None,
             options,
+            selected_ids: vec![],
         }
     }).collect()
 }
 
-async fn fields_to_context(fields: &[crate::field::Field]) -> Vec<FieldContext> {
+/// Build template context for a list of fields.
+///
+/// `submitted_values` — form values from a POST resubmission (used to restore
+///   ManyToMany selections when re-rendering a form after a validation error).
+/// `record_id` — the current record's ID (used to fetch ManyToMany selections
+///   from the DB when opening an edit form fresh).
+async fn fields_to_context(
+    fields: &[crate::field::Field],
+    submitted_values: &HashMap<String, String>,
+    record_id: Option<&Value>,
+) -> Vec<FieldContext> {
     use crate::field::FieldType;
     let mut result = Vec::with_capacity(fields.len());
     for f in fields {
-        let (type_str, options) = match &f.field_type {
-            FieldType::Text => ("Text".to_string(), vec![]),
-            FieldType::TextArea => ("TextArea".to_string(), vec![]),
-            FieldType::Email => ("Email".to_string(), vec![]),
-            FieldType::Password => ("Password".to_string(), vec![]),
-            FieldType::Number => ("Number".to_string(), vec![]),
-            FieldType::Float => ("Float".to_string(), vec![]),
-            FieldType::Boolean => ("Boolean".to_string(), vec![]),
-            FieldType::Date => ("Date".to_string(), vec![]),
-            FieldType::DateTime => ("DateTime".to_string(), vec![]),
-            FieldType::Json => ("Json".to_string(), vec![]),
-            FieldType::Select(opts) => ("Select".to_string(), opts.clone()),
+        let (type_str, options, selected_ids) = match &f.field_type {
+            FieldType::Text => ("Text".to_string(), vec![], vec![]),
+            FieldType::TextArea => ("TextArea".to_string(), vec![], vec![]),
+            FieldType::Email => ("Email".to_string(), vec![], vec![]),
+            FieldType::Password => ("Password".to_string(), vec![], vec![]),
+            FieldType::Number => ("Number".to_string(), vec![], vec![]),
+            FieldType::Float => ("Float".to_string(), vec![], vec![]),
+            FieldType::Boolean => ("Boolean".to_string(), vec![], vec![]),
+            FieldType::Date => ("Date".to_string(), vec![], vec![]),
+            FieldType::DateTime => ("DateTime".to_string(), vec![], vec![]),
+            FieldType::Json => ("Json".to_string(), vec![], vec![]),
+            FieldType::Select(opts) => ("Select".to_string(), opts.clone(), vec![]),
             FieldType::ForeignKey { adapter, value_field, label_field, limit, order_by } => {
                 let params = crate::adapter::ListParams {
                     per_page: limit.unwrap_or(i64::MAX as u64),
@@ -228,9 +239,22 @@ async fn fields_to_context(fields: &[crate::field::Field]) -> Vec<FieldContext> 
                         Some((value, label))
                     })
                     .collect();
-                ("Select".to_string(), options)
+                ("Select".to_string(), options, vec![])
             }
-            FieldType::Custom(_) => ("Text".to_string(), vec![]),
+            FieldType::ManyToMany { adapter } => {
+                let options = adapter.fetch_options().await.unwrap_or_default();
+                // Determine selected IDs: prefer submitted form values (error resubmission),
+                // fall back to fetching from the DB for the current record.
+                let selected_ids = if let Some(json_str) = submitted_values.get(&f.name) {
+                    serde_json::from_str::<Vec<String>>(json_str).unwrap_or_default()
+                } else if let Some(id) = record_id {
+                    adapter.fetch_selected(id).await.unwrap_or_default()
+                } else {
+                    vec![]
+                };
+                ("ManyToMany".to_string(), options, selected_ids)
+            }
+            FieldType::Custom(_) => ("Text".to_string(), vec![], vec![]),
         };
         result.push(FieldContext {
             name: f.name.clone(),
@@ -243,9 +267,52 @@ async fn fields_to_context(fields: &[crate::field::Field]) -> Vec<FieldContext> 
             required: f.required,
             help_text: f.help_text.clone(),
             options,
+            selected_ids,
         });
     }
     result
+}
+
+/// Remove ManyToMany fields from the data map (they aren't DB columns on the main table)
+/// and return them as a vec of (field_name, selected_ids).
+fn extract_m2m_data(
+    fields: &[crate::field::Field],
+    data: &mut HashMap<String, Value>,
+) -> Vec<(String, Vec<String>)> {
+    use crate::field::FieldType;
+    fields
+        .iter()
+        .filter(|f| matches!(f.field_type, FieldType::ManyToMany { .. }))
+        .map(|f| {
+            let ids = data
+                .remove(&f.name)
+                .and_then(|v| {
+                    if let Value::String(s) = v {
+                        serde_json::from_str::<Vec<String>>(&s).ok()
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
+            (f.name.clone(), ids)
+        })
+        .collect()
+}
+
+/// Save ManyToMany selections to the junction table for each M2M field.
+async fn save_m2m(
+    fields: &[crate::field::Field],
+    record_id: &Value,
+    m2m_data: Vec<(String, Vec<String>)>,
+) {
+    use crate::field::FieldType;
+    for (field_name, selected_ids) in m2m_data {
+        if let Some(field) = fields.iter().find(|f| f.name == field_name) {
+            if let FieldType::ManyToMany { adapter } = &field.field_type {
+                let _ = adapter.save(record_id, selected_ids).await;
+            }
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -263,10 +330,11 @@ async fn render_form_error(
         crate::error::AdminError::ValidationError(e) => e,
         other => HashMap::from([("__all__".to_string(), other.to_string())]),
     };
-    let values = form
+    let values: HashMap<String, String> = form
         .into_iter()
         .map(|(k, v)| (k, value_to_string(&v)))
         .collect();
+    let rid = if record_id.is_empty() { None } else { Some(Value::String(record_id.to_string())) };
     let ctx = FormContext {
         admin_title: state.title.clone(),
         admin_icon: state.icon.clone(),
@@ -275,7 +343,7 @@ async fn render_form_error(
         current_entity: entity_name.to_string(),
         entity_name: entity_name.to_string(),
         entity_label: entity.label.clone(),
-        fields: fields_to_context(&entity.fields).await,
+        fields: fields_to_context(&entity.fields, &values, rid.as_ref()).await,
         values,
         errors,
         is_create,
@@ -543,7 +611,7 @@ async fn entity_create_form(
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
-        fields: fields_to_context(&entity.fields).await,
+        fields: fields_to_context(&entity.fields, &HashMap::new(), None).await,
         values: HashMap::new(),
         errors: HashMap::new(),
         is_create: true,
@@ -582,6 +650,9 @@ async fn entity_create_submit(
         .map(|(k, v)| (k.clone(), Value::String(v.clone())))
         .collect();
 
+    // Extract ManyToMany fields from data — they are not columns on the main table.
+    let m2m_data = extract_m2m_data(&entity.fields, &mut data);
+
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
             return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token).await
@@ -590,8 +661,12 @@ async fn entity_create_submit(
     }
 
     match adapter.create(data).await {
-        Ok(_) => Redirect::to(&format!("/admin/{}/", entity_name)).into_response(),
+        Ok(new_id) => {
+            save_m2m(&entity.fields, &new_id, m2m_data).await;
+            Redirect::to(&format!("/admin/{}/", entity_name)).into_response()
+        }
         Err(crate::error::AdminError::ValidationError(errs)) => {
+            let values: HashMap<String, String> = form.into_iter().filter(|(k, _)| k != "csrf_token").collect();
             let ctx = FormContext {
                 admin_title: state.title.clone(),
                 admin_icon: state.icon.clone(),
@@ -600,8 +675,8 @@ async fn entity_create_submit(
                 current_entity: entity_name.clone(),
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),
-                fields: fields_to_context(&entity.fields).await,
-                values: form.into_iter().filter(|(k, _)| k != "csrf_token").collect(),
+                fields: fields_to_context(&entity.fields, &values, None).await,
+                values,
                 errors: errs,
                 is_create: true,
                 record_id: String::new(),
@@ -656,7 +731,7 @@ async fn entity_edit_form(
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
-        fields: fields_to_context(&entity.fields).await,
+        fields: fields_to_context(&entity.fields, &HashMap::new(), Some(&Value::String(id.clone()))).await,
         values,
         errors: HashMap::new(),
         is_create: false,
@@ -695,6 +770,9 @@ async fn entity_edit_submit(
         .map(|(k, v)| (k.clone(), Value::String(v.clone())))
         .collect();
 
+    // Extract ManyToMany fields from data — they are not columns on the main table.
+    let m2m_data = extract_m2m_data(&entity.fields, &mut data);
+
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
             return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token).await
@@ -702,9 +780,14 @@ async fn entity_edit_submit(
         }
     }
 
-    match adapter.update(&Value::String(id.clone()), data).await {
-        Ok(_) => Redirect::to(&format!("/admin/{}/", entity_name)).into_response(),
+    let record_id = Value::String(id.clone());
+    match adapter.update(&record_id, data).await {
+        Ok(_) => {
+            save_m2m(&entity.fields, &record_id, m2m_data).await;
+            Redirect::to(&format!("/admin/{}/", entity_name)).into_response()
+        }
         Err(crate::error::AdminError::ValidationError(errs)) => {
+            let values: HashMap<String, String> = form.into_iter().filter(|(k, _)| k != "csrf_token").collect();
             let ctx = FormContext {
                 admin_title: state.title.clone(),
                 admin_icon: state.icon.clone(),
@@ -713,8 +796,8 @@ async fn entity_edit_submit(
                 current_entity: entity_name.clone(),
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),
-                fields: fields_to_context(&entity.fields).await,
-                values: form.into_iter().filter(|(k, _)| k != "csrf_token").collect(),
+                fields: fields_to_context(&entity.fields, &values, Some(&Value::String(id.clone()))).await,
+                values,
                 errors: errs,
                 is_create: false,
                 record_id: id,

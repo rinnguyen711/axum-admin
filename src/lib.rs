@@ -11,7 +11,7 @@ pub mod render;
 
 pub use error::AdminError;
 pub use field::{Field, FieldType, Widget};
-pub use adapter::{DataAdapter, ListParams, SortOrder};
+pub use adapter::{DataAdapter, ManyToManyAdapter, ListParams, SortOrder};
 pub use entity::{EntityAdmin, EntityGroupAdmin, CustomAction, ActionTarget, ActionContext, ActionResult};
 pub use app::AdminApp;
 pub use auth::{AdminAuth, AdminUser, DefaultAdminAuth};

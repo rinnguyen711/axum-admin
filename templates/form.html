@@ -86,6 +86,44 @@
              {% if field.readonly %}readonly{% endif %}
              class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
 
+      {% elif field.field_type == "ManyToMany" %}
+      {# Alpine.js multi-select — stores selection as a JSON array in a hidden input #}
+      <div x-data="{
+            options: {{ field.options | tojson }},
+            selected: {{ field.selected_ids | tojson }},
+            open: false,
+            toggle(val) {
+              const i = this.selected.indexOf(val);
+              if (i === -1) this.selected.push(val);
+              else this.selected.splice(i, 1);
+            },
+            label(val) {
+              const opt = this.options.find(o => o[0] === val);
+              return opt ? opt[1] : val;
+            }
+          }"
+           @click.outside="open = false"
+           class="relative">
+        <input type="hidden" :name="'{{ field.name }}'" :value="JSON.stringify(selected)" />
+        <button type="button" @click="open = !open"
+                class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm text-left bg-white focus:outline-none focus:ring-1 focus:ring-black focus:border-black flex items-center justify-between">
+          <span x-text="selected.length === 0 ? 'Select…' : selected.map(label).join(', ')" class="truncate text-zinc-700"></span>
+          <i class="fa-solid fa-chevron-down text-zinc-400 text-xs ml-2 shrink-0" :class="open ? 'rotate-180' : ''" style="transition: transform .15s"></i>
+        </button>
+        <div x-show="open"
+             class="absolute z-20 mt-1 w-full bg-white border border-zinc-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <template x-for="opt in options" :key="opt[0]">
+            <label class="flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 cursor-pointer text-sm">
+              <input type="checkbox" :value="opt[0]" :checked="selected.includes(opt[0])"
+                     @change="toggle(opt[0])"
+                     class="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black" />
+              <span x-text="opt[1]" class="text-zinc-700"></span>
+            </label>
+          </template>
+          <p x-show="options.length === 0" class="px-3 py-2 text-sm text-zinc-400">No options available.</p>
+        </div>
+      </div>
+
       {% elif field.field_type == "Json" %}
       <textarea name="{{ field.name }}" rows="6"
                 {% if field.readonly %}readonly{% endif %}

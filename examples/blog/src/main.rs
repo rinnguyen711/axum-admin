@@ -112,6 +112,42 @@ async fn setup_db() -> DatabaseConnection {
     .await
     .expect("failed to seed posts");
 
+    // Tags and post_tags junction for ManyToMany example
+    db.execute(Statement::from_string(
+        DbBackend::Sqlite,
+        "CREATE TABLE tags (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        )",
+    ))
+    .await
+    .expect("failed to create tags table");
+
+    db.execute(Statement::from_string(
+        DbBackend::Sqlite,
+        "CREATE TABLE post_tags (
+            post_id INTEGER NOT NULL,
+            tag_id  INTEGER NOT NULL,
+            PRIMARY KEY (post_id, tag_id)
+        )",
+    ))
+    .await
+    .expect("failed to create post_tags table");
+
+    db.execute(Statement::from_string(
+        DbBackend::Sqlite,
+        "INSERT INTO tags (name) VALUES ('tutorial'), ('performance'), ('async'), ('tooling'), ('beginner')",
+    ))
+    .await
+    .expect("failed to seed tags");
+
+    db.execute(Statement::from_string(
+        DbBackend::Sqlite,
+        "INSERT INTO post_tags (post_id, tag_id) VALUES (1, 1), (1, 5), (2, 1), (3, 1), (4, 3), (5, 1)",
+    ))
+    .await
+    .expect("failed to seed post_tags");
+
     db
 }
 

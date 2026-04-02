@@ -32,6 +32,9 @@ pub enum FieldType {
         limit: Option<u64>,
         order_by: Option<String>,
     },
+    ManyToMany {
+        adapter: Box<dyn crate::adapter::ManyToManyAdapter>,
+    },
     Json,
     Custom(Box<dyn Widget>),
 }
@@ -52,6 +55,7 @@ impl std::fmt::Debug for FieldType {
             FieldType::ForeignKey { value_field, label_field, limit, order_by, .. } => {
                 write!(f, "ForeignKey {{ value_field: {value_field:?}, label_field: {label_field:?}, limit: {limit:?}, order_by: {order_by:?} }}")
             }
+            FieldType::ManyToMany { .. } => write!(f, "ManyToMany(..)"),
             FieldType::Json => write!(f, "Json"),
             FieldType::Custom(_) => write!(f, "Custom(..)"),
         }
@@ -130,6 +134,10 @@ impl Field {
 
     pub fn custom(name: &str, widget: Box<dyn Widget>) -> Self {
         Self::new(name, FieldType::Custom(widget))
+    }
+
+    pub fn many_to_many(name: &str, adapter: Box<dyn crate::adapter::ManyToManyAdapter>) -> Self {
+        Self::new(name, FieldType::ManyToMany { adapter })
     }
 
     // Modifiers — all consume self and return Self for chaining

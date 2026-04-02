@@ -33,6 +33,17 @@ impl Default for ListParams {
     }
 }
 
+/// Handles the options list and junction-table read/write for a ManyToMany field.
+#[async_trait]
+pub trait ManyToManyAdapter: Send + Sync {
+    /// All available options as `(value, label)` pairs.
+    async fn fetch_options(&self) -> Result<Vec<(String, String)>, AdminError>;
+    /// The currently selected IDs for a given record.
+    async fn fetch_selected(&self, record_id: &Value) -> Result<Vec<String>, AdminError>;
+    /// Replace the current selection for a record (delete + insert in the junction table).
+    async fn save(&self, record_id: &Value, selected_ids: Vec<String>) -> Result<(), AdminError>;
+}
+
 #[async_trait]
 pub trait DataAdapter: Send + Sync {
     async fn list(&self, params: ListParams) -> Result<Vec<HashMap<String, Value>>, AdminError>;

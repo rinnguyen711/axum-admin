@@ -1,5 +1,5 @@
 use axum::Router;
-use axum_admin::{adapters::seaorm::SeaOrmAdapter, AdminApp, DefaultAdminAuth, EntityAdmin, EntityGroupAdmin, Field};
+use axum_admin::{adapters::seaorm::{SeaOrmAdapter, SeaOrmManyToManyAdapter}, AdminApp, DefaultAdminAuth, EntityAdmin, EntityGroupAdmin, Field};
 use sea_orm::DatabaseConnection;
 
 use crate::{category, post};
@@ -38,6 +38,20 @@ pub fn build(db: DatabaseConnection) -> Router {
                                 "id",
                                 "name",
                             )
+                        )
+                        .field(
+                            Field::many_to_many(
+                                "tags",
+                                Box::new(SeaOrmManyToManyAdapter::new(
+                                    db.clone(),
+                                    "post_tags", // junction table
+                                    "post_id",   // FK to posts
+                                    "tag_id",    // FK to tags
+                                    "tags",      // options table
+                                    "id",        // value column
+                                    "name",      // label column
+                                )),
+                            ).label("Tags"),
                         )
                         .search_fields(vec!["title".to_string(), "body".to_string()])
                         .filter_fields(vec!["status".to_string(), "category_id".to_string()])

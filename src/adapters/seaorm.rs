@@ -313,7 +313,164 @@ where
     }
 }
 
+use crate::adapter::ManyToManyAdapter;
 use crate::field::{Field, FieldType};
+
+/// SeaORM-backed adapter for ManyToMany fields.
+///
+/// Uses raw SQL against a junction table — no SeaORM entity definition required
+/// for the junction table itself.
+///
+/// # Example
+/// ```ignore
+/// Field::many_to_many(
+///     "tags",
+///     Box::new(SeaOrmManyToManyAdapter::new(
+///         db.clone(),
+///         "post_tags",  // junction table
+///         "post_id",    // column referencing the current entity
+///         "tag_id",     // column referencing the related entity
+///         "tags",       // related entity table (for options)
+///         "id",         // value column on related table
+///         "name",       // label column on related table
+///     )),
+/// )
+/// ```
+pub struct SeaOrmManyToManyAdapter {
+    db: DatabaseConnection,
+    junction_table: String,
+    source_col: String,
+    target_col: String,
+    options_table: String,
+    value_col: String,
+    label_col: String,
+}
+
+impl SeaOrmManyToManyAdapter {
+    pub fn new(
+        db: DatabaseConnection,
+        junction_table: &str,
+        source_col: &str,
+        target_col: &str,
+        options_table: &str,
+        value_col: &str,
+        label_col: &str,
+    ) -> Self {
+        Self {
+            db,
+            junction_table: junction_table.to_string(),
+            source_col: source_col.to_string(),
+            target_col: target_col.to_string(),
+            options_table: options_table.to_string(),
+            value_col: value_col.to_string(),
+            label_col: label_col.to_string(),
+        }
+    }
+}
+
+#[async_trait]
+impl ManyToManyAdapter for SeaOrmManyToManyAdapter {
+    async fn fetch_options(&self) -> Result<Vec<(String, String)>, AdminError> {
+        let sql = format!(
+            "SELECT {}, {} FROM {} ORDER BY {}",
+            self.value_col, self.label_col, self.options_table, self.label_col
+        );
+        let stmt = Statement::from_string(self.db.get_database_backend(), sql);
+        let rows = self
+            .db
+            .query_all(stmt)
+            .await
+            .map_err(|e| AdminError::DatabaseError(e.to_string()))?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                let value = String::try_get_by(row, self.value_col.as_str())
+                    .ok()
+                    .or_else(|| {
+                        i64::try_get_by(row, self.value_col.as_str())
+                            .ok()
+                            .map(|n| n.to_string())
+                    })?;
+                let label = String::try_get_by(row, self.label_col.as_str())
+                    .unwrap_or_else(|_| value.clone());
+                Some((value, label))
+            })
+            .collect())
+    }
+
+    async fn fetch_selected(&self, record_id: &Value) -> Result<Vec<String>, AdminError> {
+        let id_val = json_to_sea_value(record_id);
+        let sql = format!(
+            "SELECT {} FROM {} WHERE {} = ?",
+            self.target_col, self.junction_table, self.source_col
+        );
+        let stmt = Statement::from_sql_and_values(
+            self.db.get_database_backend(),
+            &sql,
+            [id_val],
+        );
+        let rows = self
+            .db
+            .query_all(stmt)
+            .await
+            .map_err(|e| AdminError::DatabaseError(e.to_string()))?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                String::try_get_by(row, self.target_col.as_str())
+                    .ok()
+                    .or_else(|| {
+                        i64::try_get_by(row, self.target_col.as_str())
+                            .ok()
+                            .map(|n| n.to_string())
+                    })
+            })
+            .collect())
+    }
+
+    async fn save(&self, record_id: &Value, selected_ids: Vec<String>) -> Result<(), AdminError> {
+        let id_val = json_to_sea_value(record_id);
+
+        // Delete existing junction rows for this record
+        let del_sql = format!(
+            "DELETE FROM {} WHERE {} = ?",
+            self.junction_table, self.source_col
+        );
+        let del_stmt = Statement::from_sql_and_values(
+            self.db.get_database_backend(),
+            &del_sql,
+            [id_val.clone()],
+        );
+        self.db
+            .execute(del_stmt)
+            .await
+            .map_err(|e| AdminError::DatabaseError(e.to_string()))?;
+
+        // Insert new rows
+        for target_id in &selected_ids {
+            let ins_sql = format!(
+                "INSERT INTO {} ({}, {}) VALUES (?, ?)",
+                self.junction_table, self.source_col, self.target_col
+            );
+            let ins_stmt = Statement::from_sql_and_values(
+                self.db.get_database_backend(),
+                &ins_sql,
+                [
+                    id_val.clone(),
+                    SeaValue::String(Some(Box::new(target_id.clone()))),
+                ],
+            );
+            self.db
+                .execute(ins_stmt)
+                .await
+                .map_err(|e| AdminError::DatabaseError(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+}
 
 pub fn seaorm_fields_for<E>() -> Vec<Field>
 where
@@ -358,7 +515,7 @@ where
             };
             let mut f = Field::new(name, field_type);
             if name == "id" {
-                f = f.readonly();
+                f = f.readonly().list_only();
             }
             f
         })
