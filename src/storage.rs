@@ -50,10 +50,17 @@ impl FileStorage for LocalStorage {
     }
 
     async fn delete(&self, url: &str) -> Result<(), AdminError> {
+        let base = self.base_url.trim_end_matches('/');
+        if !url.starts_with(base) {
+            return Err(AdminError::Custom("URL does not belong to this storage".to_string()));
+        }
         let filename = url
-            .trim_start_matches(self.base_url.trim_end_matches('/'))
+            .trim_start_matches(base)
             .trim_start_matches('/');
         let path = self.root.join(filename);
+        if !path.starts_with(&self.root) {
+            return Err(AdminError::Custom("Invalid file path".to_string()));
+        }
         match tokio::fs::remove_file(&path).await {
             Ok(_) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
