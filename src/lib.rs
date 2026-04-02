@@ -8,6 +8,7 @@ pub mod auth;
 pub mod middleware;
 pub mod router;
 pub mod render;
+pub mod validator;
 
 pub use error::AdminError;
 pub use field::{Field, FieldType, Widget};
@@ -16,3 +17,7 @@ pub use entity::{EntityAdmin, EntityGroupAdmin, CustomAction, ActionTarget, Acti
 pub use app::AdminApp;
 pub use auth::{AdminAuth, AdminUser, DefaultAdminAuth};
 pub use render::context;
+pub use validator::{
+    Validator, AsyncValidator,
+    Required, MinLength, MaxLength, MinValue, MaxValue, RegexValidator, EmailFormat, Unique,
+};
