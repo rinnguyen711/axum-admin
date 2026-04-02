@@ -179,6 +179,15 @@ impl Field {
         Self::new(name, FieldType::Image { storage })
     }
 
+    /// Set the accepted MIME types for a `File` field. Example: `vec!["application/pdf".to_string()]`.
+    /// Has no effect on non-File fields.
+    pub fn accept(mut self, types: Vec<String>) -> Self {
+        if let FieldType::File { ref mut accept, .. } = self.field_type {
+            *accept = types;
+        }
+        self
+    }
+
     // Modifiers — all consume self and return Self for chaining
     pub fn label(mut self, label: &str) -> Self { self.label = label.to_string(); self }
     pub fn readonly(mut self) -> Self { self.readonly = true; self }
