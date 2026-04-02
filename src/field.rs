@@ -1,5 +1,17 @@
 use std::fmt;
 
+impl fmt::Debug for dyn crate::validator::Validator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Validator")
+    }
+}
+
+impl fmt::Debug for dyn crate::validator::AsyncValidator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "AsyncValidator")
+    }
+}
+
 /// Escape hatch for fully custom HTML widget rendering.
 pub trait Widget: Send + Sync {
     /// Render this widget as an HTML string for a form input.
@@ -73,6 +85,8 @@ pub struct Field {
     pub form_only: bool,
     pub required: bool,
     pub help_text: Option<String>,
+    pub validators: Vec<Box<dyn crate::validator::Validator>>,
+    pub async_validators: Vec<Box<dyn crate::validator::AsyncValidator>>,
 }
 
 /// Capitalise first letter of a snake_case name for use as a default label.
@@ -96,12 +110,18 @@ impl Field {
             form_only: false,
             required: false,
             help_text: None,
+            validators: Vec::new(),
+            async_validators: Vec::new(),
         }
     }
 
     pub fn text(name: &str) -> Self { Self::new(name, FieldType::Text) }
     pub fn textarea(name: &str) -> Self { Self::new(name, FieldType::TextArea) }
-    pub fn email(name: &str) -> Self { Self::new(name, FieldType::Email) }
+    pub fn email(name: &str) -> Self {
+        let mut f = Self::new(name, FieldType::Email);
+        f.validators.push(Box::new(crate::validator::EmailFormat));
+        f
+    }
     pub fn password(name: &str) -> Self { Self::new(name, FieldType::Password) }
     pub fn number(name: &str) -> Self { Self::new(name, FieldType::Number) }
     pub fn float(name: &str) -> Self { Self::new(name, FieldType::Float) }
@@ -146,8 +166,54 @@ impl Field {
     pub fn hidden(mut self) -> Self { self.hidden = true; self }
     pub fn list_only(mut self) -> Self { self.list_only = true; self }
     pub fn form_only(mut self) -> Self { self.form_only = true; self }
-    pub fn required(mut self) -> Self { self.required = true; self }
+    pub fn required(mut self) -> Self {
+        self.required = true;
+        self.validators.push(Box::new(crate::validator::Required));
+        self
+    }
     pub fn help_text(mut self, text: &str) -> Self { self.help_text = Some(text.to_string()); self }
+
+    /// Add a custom synchronous validator.
+    pub fn validator(mut self, v: Box<dyn crate::validator::Validator>) -> Self {
+        self.validators.push(v);
+        self
+    }
+
+    /// Add a custom asynchronous validator (e.g. uniqueness checks).
+    pub fn async_validator(mut self, v: Box<dyn crate::validator::AsyncValidator>) -> Self {
+        self.async_validators.push(v);
+        self
+    }
+
+    pub fn min_length(mut self, n: usize) -> Self {
+        self.validators.push(Box::new(crate::validator::MinLength(n)));
+        self
+    }
+
+    pub fn max_length(mut self, n: usize) -> Self {
+        self.validators.push(Box::new(crate::validator::MaxLength(n)));
+        self
+    }
+
+    pub fn min_value(mut self, n: f64) -> Self {
+        self.validators.push(Box::new(crate::validator::MinValue(n)));
+        self
+    }
+
+    pub fn max_value(mut self, n: f64) -> Self {
+        self.validators.push(Box::new(crate::validator::MaxValue(n)));
+        self
+    }
+
+    pub fn regex(mut self, pattern: &str) -> Self {
+        self.validators.push(Box::new(crate::validator::RegexValidator::new(pattern)));
+        self
+    }
+
+    pub fn unique(mut self, adapter: Box<dyn crate::adapter::DataAdapter>, col: &str) -> Self {
+        self.async_validators.push(Box::new(crate::validator::Unique::new(adapter, col)));
+        self
+    }
 
     pub fn fk_limit(mut self, n: u64) -> Self {
         if let FieldType::ForeignKey { ref mut limit, .. } = self.field_type {
