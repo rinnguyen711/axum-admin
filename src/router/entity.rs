@@ -348,15 +348,15 @@ pub(super) async fn entity_create_submit(
         }
     }
 
+    let data_for_error = data.clone();
     match adapter.create(data).await {
         Ok(new_id) => {
             save_m2m(&entity.fields, &new_id, m2m_data).await;
             Redirect::to(&format!("/admin/{}/", entity_name)).into_response()
         }
         Err(crate::error::AdminError::ValidationError(errs)) => {
-            let values: HashMap<String, String> = multipart_data.fields
+            let values: HashMap<String, String> = data_for_error
                 .into_iter()
-                .filter(|(k, _)| k != "csrf_token")
                 .filter_map(|(k, v)| if let Value::String(s) = v { Some((k, s)) } else { None })
                 .collect();
             let ctx = FormContext {
@@ -496,15 +496,15 @@ pub(super) async fn entity_edit_submit(
         }
     }
 
+    let data_for_error = data.clone();
     match adapter.update(&record_id_val, data).await {
         Ok(_) => {
             save_m2m(&entity.fields, &record_id_val, m2m_data).await;
             Redirect::to(&format!("/admin/{}/", entity_name)).into_response()
         }
         Err(crate::error::AdminError::ValidationError(errs)) => {
-            let values: HashMap<String, String> = multipart_data.fields
+            let values: HashMap<String, String> = data_for_error
                 .into_iter()
-                .filter(|(k, _)| k != "csrf_token")
                 .filter_map(|(k, v)| if let Value::String(s) = v { Some((k, s)) } else { None })
                 .collect();
             let ctx = FormContext {
