@@ -5,7 +5,7 @@ use crate::{
     },
 };
 use axum::{
-    extract::{Extension, Form, Path, Query, RawQuery},
+    extract::{Extension, Multipart, Path, Query, RawQuery},
     http::{header, header::LOCATION, StatusCode},
     response::{Html, IntoResponse, Redirect, Response},
 };
@@ -17,8 +17,8 @@ use tower_cookies::Cookies;
 use super::csrf::{get_or_create_csrf, validate_csrf};
 use super::helpers::{
     build_nav, entity_refs, extract_m2m_data, fields_to_context, filter_fields_to_context,
-    parse_filters, render_form_error, resolve_filter_fields, row_to_context, save_m2m,
-    validate_fields, validate_fields_async, value_to_string,
+    parse_filters, parse_multipart, render_form_error, resolve_filter_fields, row_to_context,
+    save_m2m, validate_fields, validate_fields_async, value_to_string,
 };
 
 #[derive(Deserialize, Default)]
@@ -211,38 +211,125 @@ pub(super) async fn entity_create_form(
     Html(state.renderer.render("form.html", ctx)).into_response()
 }
 
+/// Process File/Image fields from multipart data: validate MIME, call storage.save,
+/// insert resulting URL into `data`. Returns field-level errors for any failures.
+async fn process_file_fields(
+    entity_fields: &[crate::field::Field],
+    multipart_data: &super::helpers::MultipartData,
+    data: &mut HashMap<String, Value>,
+) -> HashMap<String, String> {
+    use crate::field::FieldType;
+    let mut errors: HashMap<String, String> = HashMap::new();
+
+    for field in entity_fields {
+        match &field.field_type {
+            FieldType::File { storage, accept } => {
+                if let Some(upload) = multipart_data.files.get(&field.name) {
+                    // Validate MIME if accept list is non-empty
+                    if !accept.is_empty() {
+                        let mime = &upload.content_type;
+                        let ok = accept.iter().any(|a| {
+                            if a.ends_with("/*") {
+                                let prefix = a.trim_end_matches("/*");
+                                mime.starts_with(prefix)
+                            } else {
+                                mime == a
+                            }
+                        });
+                        if !ok {
+                            errors.insert(
+                                field.name.clone(),
+                                format!("Invalid file type. Allowed: {}", accept.join(", ")),
+                            );
+                            continue;
+                        }
+                    }
+                    match storage.save(&upload.filename, &upload.data).await {
+                        Ok(url) => { data.insert(field.name.clone(), Value::String(url)); }
+                        Err(e) => { errors.insert(field.name.clone(), e.to_string()); }
+                    }
+                } else if let Some(Value::String(s)) = multipart_data.fields.get(&format!("{}__clear", field.name)) {
+                    if s == "on" {
+                        // Best-effort delete existing file
+                        if let Some(Value::String(existing)) = data.get(&field.name) {
+                            let _ = storage.delete(existing).await;
+                        }
+                        data.insert(field.name.clone(), Value::Null);
+                    }
+                }
+                // else: no upload + no clear = do nothing (keep existing or leave empty)
+            }
+            FieldType::Image { storage } => {
+                if let Some(upload) = multipart_data.files.get(&field.name) {
+                    if !upload.content_type.starts_with("image/") {
+                        errors.insert(
+                            field.name.clone(),
+                            "Invalid file type. Allowed: image/*".to_string(),
+                        );
+                        continue;
+                    }
+                    match storage.save(&upload.filename, &upload.data).await {
+                        Ok(url) => { data.insert(field.name.clone(), Value::String(url)); }
+                        Err(e) => { errors.insert(field.name.clone(), e.to_string()); }
+                    }
+                } else if let Some(Value::String(s)) = multipart_data.fields.get(&format!("{}__clear", field.name)) {
+                    if s == "on" {
+                        if let Some(Value::String(existing)) = data.get(&field.name) {
+                            let _ = storage.delete(existing).await;
+                        }
+                        data.insert(field.name.clone(), Value::Null);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    errors
+}
+
 pub(super) async fn entity_create_submit(
     cookies: Cookies,
     Path(entity_name): Path<String>,
     Extension(state): Extension<Arc<AdminAppState>>,
-    Form(form): Form<HashMap<String, String>>,
+    multipart: Multipart,
 ) -> Response {
-    if !validate_csrf(&cookies, form.get("csrf_token").map(String::as_str)) {
+    let multipart_data = match parse_multipart(multipart).await {
+        Ok(d) => d,
+        Err(e) => return (StatusCode::BAD_REQUEST, e).into_response(),
+    };
+
+    if !validate_csrf(&cookies, multipart_data.fields.get("csrf_token").and_then(|v| {
+        if let Value::String(s) = v { Some(s.as_str()) } else { None }
+    })) {
         return (StatusCode::FORBIDDEN, "Invalid CSRF token").into_response();
     }
+
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
     let adapter = match &entity.adapter {
         Some(a) => a,
-        None => {
-            return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "No adapter").into_response()
-        }
+        None => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "No adapter").into_response(),
     };
 
     let csrf_token = get_or_create_csrf(&cookies);
-    let mut data: HashMap<String, Value> = form
+    let mut data: HashMap<String, Value> = multipart_data.fields
         .iter()
         .filter(|(k, _)| k.as_str() != "csrf_token")
-        .map(|(k, v)| (k.clone(), Value::String(v.clone())))
+        .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
 
-    // Extract ManyToMany fields from data — they are not columns on the main table.
+    // Process file/image fields: validate MIME, save to storage
+    let mut field_errors = process_file_fields(&entity.fields, &multipart_data, &mut data).await;
+
+    // Extract ManyToMany fields from data
     let m2m_data = extract_m2m_data(&entity.fields, &mut data);
 
-    // Run declarative field validators (sync first, then async).
-    let mut field_errors = validate_fields(&entity.fields, &data);
+    // Run declarative field validators (sync first, then async)
+    if field_errors.is_empty() {
+        field_errors = validate_fields(&entity.fields, &data);
+    }
     if field_errors.is_empty() {
         let async_errors = validate_fields_async(&entity.fields, &data, None).await;
         field_errors.extend(async_errors);
@@ -256,8 +343,8 @@ pub(super) async fn entity_create_submit(
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token).await
-                .into_response();
+            return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token)
+                .await.into_response();
         }
     }
 
@@ -267,7 +354,11 @@ pub(super) async fn entity_create_submit(
             Redirect::to(&format!("/admin/{}/", entity_name)).into_response()
         }
         Err(crate::error::AdminError::ValidationError(errs)) => {
-            let values: HashMap<String, String> = form.into_iter().filter(|(k, _)| k != "csrf_token").collect();
+            let values: HashMap<String, String> = multipart_data.fields
+                .into_iter()
+                .filter(|(k, _)| k != "csrf_token")
+                .filter_map(|(k, v)| if let Value::String(s) = v { Some((k, s)) } else { None })
+                .collect();
             let ctx = FormContext {
                 admin_title: state.title.clone(),
                 admin_icon: state.icon.clone(),
@@ -347,35 +438,46 @@ pub(super) async fn entity_edit_submit(
     cookies: Cookies,
     Path((entity_name, id)): Path<(String, String)>,
     Extension(state): Extension<Arc<AdminAppState>>,
-    Form(form): Form<HashMap<String, String>>,
+    multipart: Multipart,
 ) -> Response {
-    if !validate_csrf(&cookies, form.get("csrf_token").map(String::as_str)) {
+    let multipart_data = match parse_multipart(multipart).await {
+        Ok(d) => d,
+        Err(e) => return (StatusCode::BAD_REQUEST, e).into_response(),
+    };
+
+    if !validate_csrf(&cookies, multipart_data.fields.get("csrf_token").and_then(|v| {
+        if let Value::String(s) = v { Some(s.as_str()) } else { None }
+    })) {
         return (StatusCode::FORBIDDEN, "Invalid CSRF token").into_response();
     }
+
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
     let adapter = match &entity.adapter {
         Some(a) => a,
-        None => {
-            return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "No adapter").into_response()
-        }
+        None => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "No adapter").into_response(),
     };
 
     let csrf_token = get_or_create_csrf(&cookies);
-    let mut data: HashMap<String, Value> = form
+    let mut data: HashMap<String, Value> = multipart_data.fields
         .iter()
         .filter(|(k, _)| k.as_str() != "csrf_token")
-        .map(|(k, v)| (k.clone(), Value::String(v.clone())))
+        .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
 
-    // Extract ManyToMany fields from data — they are not columns on the main table.
+    // Process file/image fields
+    let mut field_errors = process_file_fields(&entity.fields, &multipart_data, &mut data).await;
+
+    // Extract ManyToMany fields
     let m2m_data = extract_m2m_data(&entity.fields, &mut data);
 
-    // Run declarative field validators (sync first, then async).
+    // Run declarative validators
     let record_id_val = Value::String(id.clone());
-    let mut field_errors = validate_fields(&entity.fields, &data);
+    if field_errors.is_empty() {
+        field_errors = validate_fields(&entity.fields, &data);
+    }
     if field_errors.is_empty() {
         let async_errors = validate_fields_async(&entity.fields, &data, Some(&record_id_val)).await;
         field_errors.extend(async_errors);
@@ -389,8 +491,8 @@ pub(super) async fn entity_edit_submit(
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token).await
-                .into_response();
+            return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token)
+                .await.into_response();
         }
     }
 
@@ -400,7 +502,11 @@ pub(super) async fn entity_edit_submit(
             Redirect::to(&format!("/admin/{}/", entity_name)).into_response()
         }
         Err(crate::error::AdminError::ValidationError(errs)) => {
-            let values: HashMap<String, String> = form.into_iter().filter(|(k, _)| k != "csrf_token").collect();
+            let values: HashMap<String, String> = multipart_data.fields
+                .into_iter()
+                .filter(|(k, _)| k != "csrf_token")
+                .filter_map(|(k, v)| if let Value::String(s) = v { Some((k, s)) } else { None })
+                .collect();
             let ctx = FormContext {
                 admin_title: state.title.clone(),
                 admin_icon: state.icon.clone(),
