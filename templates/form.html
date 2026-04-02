@@ -15,6 +15,12 @@
 </h1>
 
 <div class="bg-white rounded-md border border-zinc-200 shadow-sm p-8 max-w-2xl">
+  {% if errors["__all__"] %}
+  <div class="mb-5 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+    <i class="fa-solid fa-circle-exclamation shrink-0"></i>
+    {{ errors["__all__"] }}
+  </div>
+  {% endif %}
   <form method="post"
         action="{% if is_create %}/admin/{{ entity_name }}/new{% else %}/admin/{{ entity_name }}/{{ record_id }}/{% endif %}"
         class="space-y-5">
@@ -32,32 +38,32 @@
              value="{{ values[field.name] | default('') }}"
              {% if field.readonly %}readonly{% endif %}
              {% if field.required %}required{% endif %}
-             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}" />
+             class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}" />
 
       {% elif field.field_type == "TextArea" %}
       <textarea name="{{ field.name }}" rows="4"
                 {% if field.readonly %}readonly{% endif %}
                 {% if field.required %}required{% endif %}
-                class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}">{{ values[field.name] | default('') }}</textarea>
+                class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}">{{ values[field.name] | default('') }}</textarea>
 
       {% elif field.field_type == "Email" %}
       <input type="email" name="{{ field.name }}"
              value="{{ values[field.name] | default('') }}"
              {% if field.readonly %}readonly{% endif %}
              {% if field.required %}required{% endif %}
-             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}" />
+             class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}" />
 
       {% elif field.field_type == "Password" %}
       <input type="password" name="{{ field.name }}"
              {% if field.readonly %}readonly{% endif %}
-             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
+             class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
 
       {% elif field.field_type == "Number" %}
       <input type="number" name="{{ field.name }}"
              value="{{ values[field.name] | default('') }}"
              {% if field.readonly %}readonly{% endif %}
              {% if field.required %}required{% endif %}
-             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}" />
+             class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}" />
 
       {% elif field.field_type == "Boolean" %}
       <input type="checkbox" name="{{ field.name }}"
@@ -68,7 +74,7 @@
       {% elif field.field_type == "Select" %}
       <select name="{{ field.name }}"
               {% if field.readonly %}disabled{% endif %}
-              class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black bg-white">
+              class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black bg-white">
         {% for opt in field.options %}
         <option value="{{ opt.0 }}" {% if values[field.name] == opt.0 %}selected{% endif %}>{{ opt.1 }}</option>
         {% endfor %}
@@ -78,13 +84,13 @@
       <input type="date" name="{{ field.name }}"
              value="{{ values[field.name] | default('') }}"
              {% if field.readonly %}readonly{% endif %}
-             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
+             class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
 
       {% elif field.field_type == "DateTime" %}
       <input type="datetime-local" name="{{ field.name }}"
              value="{{ values[field.name] | default('') }}"
              {% if field.readonly %}readonly{% endif %}
-             class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
+             class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black" />
 
       {% elif field.field_type == "ManyToMany" %}
       {# Alpine.js multi-select — stores selection as a JSON array in a hidden input #}
@@ -106,7 +112,7 @@
            class="relative">
         <input type="hidden" :name="'{{ field.name }}'" :value="JSON.stringify(selected)" />
         <button type="button" @click="open = !open"
-                class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm text-left bg-white focus:outline-none focus:ring-1 focus:ring-black focus:border-black flex items-center justify-between">
+                class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm text-left bg-white focus:outline-none focus:ring-1 focus:ring-black focus:border-black flex items-center justify-between">
           <span x-text="selected.length === 0 ? 'Select…' : selected.map(label).join(', ')" class="truncate text-zinc-700"></span>
           <i class="fa-solid fa-chevron-down text-zinc-400 text-xs ml-2 shrink-0" :class="open ? 'rotate-180' : ''" style="transition: transform .15s"></i>
         </button>
@@ -127,7 +133,7 @@
       {% elif field.field_type == "Json" %}
       <textarea name="{{ field.name }}" rows="6"
                 {% if field.readonly %}readonly{% endif %}
-                class="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}">{{ values[field.name] | default('') }}</textarea>
+                class="w-full border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-black focus:border-black{% if field.readonly %} bg-zinc-50 text-zinc-400{% endif %}">{{ values[field.name] | default('') }}</textarea>
       {% endif %}
 
       {% if field.help_text %}
