@@ -1,4 +1,5 @@
-<div class="bg-white rounded-md border border-zinc-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+<div class="bg-white rounded-md border border-zinc-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden"
+     data-page-ids="[{% for row in rows %}&quot;{{ row.id }}&quot;{% if not loop.last %},{% endif %}{% endfor %}]">
   <div class="overflow-x-auto">
     <table class="w-full text-left border-collapse">
       <thead>
@@ -6,7 +7,11 @@
           <th class="py-3 px-4 w-10">
             <input type="checkbox"
                    class="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black"
-                   @change="selected = $event.target.checked ? rows.map(r => r.id) : []" />
+                   :checked="allIds.length > 0 && allIds.every(id => selected.includes(id))"
+                   :indeterminate="allIds.some(id => selected.includes(id)) && !allIds.every(id => selected.includes(id))"
+                   @change="$event.target.checked
+                     ? selected = [...new Set([...selected, ...allIds])]
+                     : selected = selected.filter(id => !allIds.includes(id))" />
           </th>
           {% for col in columns %}
           <th class="py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
@@ -34,7 +39,15 @@
                    x-model="selected" />
           </td>
           {% for col in columns %}
-          <td class="py-3 px-4 text-sm text-zinc-700">{{ row.data[col] }}</td>
+          <td class="py-3 px-4 text-sm text-zinc-700">
+            {% if column_types[col] == "Image" %}
+              {% if row.data[col] %}<img src="{{ row.data[col] }}" class="h-10 w-auto rounded object-cover" alt="">{% endif %}
+            {% elif column_types[col] == "File" %}
+              {{ row.data[col] | basename }}
+            {% else %}
+              {{ row.data[col] }}
+            {% endif %}
+          </td>
           {% endfor %}
           <td class="py-3 px-4 text-right">
             <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -74,16 +87,30 @@
       <button hx-get="/admin/{{ entity_name }}/?page={{ page - 1 }}"
               hx-target="#list-table"
               hx-include="[data-filter-input], [name='search']"
-              class="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors">
-        <i class="fa-solid fa-chevron-left text-[10px]"></i> Previous
+              class="flex items-center justify-center w-7 h-7 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors">
+        <i class="fa-solid fa-chevron-left text-[10px]"></i>
       </button>
       {% endif %}
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+        <span class="flex items-center justify-center w-7 h-7 rounded bg-black text-white text-xs font-semibold">{{ p }}</span>
+        {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+        <button hx-get="/admin/{{ entity_name }}/?page={{ p }}"
+                hx-target="#list-table"
+                hx-include="[data-filter-input], [name='search']"
+                class="flex items-center justify-center w-7 h-7 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors">
+          {{ p }}
+        </button>
+        {% elif p == page - 3 or p == page + 3 %}
+        <span class="flex items-center justify-center w-7 h-7 text-xs text-zinc-400">…</span>
+        {% endif %}
+      {% endfor %}
       {% if page < total_pages %}
       <button hx-get="/admin/{{ entity_name }}/?page={{ page + 1 }}"
               hx-target="#list-table"
               hx-include="[data-filter-input], [name='search']"
-              class="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors">
-        Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
+              class="flex items-center justify-center w-7 h-7 rounded text-xs font-semibold text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors">
+        <i class="fa-solid fa-chevron-right text-[10px]"></i>
       </button>
       {% endif %}
     </div>
