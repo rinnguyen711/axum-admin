@@ -274,6 +274,30 @@ fn entity_admin_filter_appends_new_name() {
 
 use axum_admin::AdminApp;
 
+#[tokio::test]
+async fn local_storage_save_and_delete() {
+    use axum_admin::{FileStorage, LocalStorage};
+
+    let dir = tempfile::tempdir().unwrap();
+    let storage = LocalStorage::new(dir.path(), "/media");
+
+    // save returns a URL starting with /media/
+    let url = storage.save("photo.jpg", b"fakejpeg").await.unwrap();
+    assert!(url.starts_with("/media/"), "url was: {url}");
+    assert!(url.ends_with(".jpg"), "url was: {url}");
+
+    // the file actually exists on disk
+    let filename = url.trim_start_matches("/media/");
+    assert!(dir.path().join(filename).exists());
+
+    // delete removes it
+    storage.delete(&url).await.unwrap();
+    assert!(!dir.path().join(filename).exists());
+
+    // delete of non-existent is idempotent
+    storage.delete(&url).await.unwrap();
+}
+
 #[test]
 fn admin_app_builder() {
     let app = AdminApp::new()

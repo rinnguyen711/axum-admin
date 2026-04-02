@@ -10,7 +10,7 @@ async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
-axum = { version = "0.7", features = ["macros"] }
+axum = { version = "0.7", features = ["macros", "multipart"] }
 tower = "0.4"
 tower-cookies = "0.10"
 bcrypt = "0.15"
@@ -23,6 +23,7 @@ regex = "1"
 [dev-dependencies]
 axum-test = "14"
 sea-orm = { version = "1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+tempfile = "3"
 
 [features]
 seaorm = ["dep:sea-orm"]

@@ -9,6 +9,8 @@ pub mod middleware;
 pub mod router;
 pub mod render;
 pub mod validator;
+pub mod storage;
+pub use storage::{FileStorage, LocalStorage};
 
 pub use error::AdminError;
 pub use field::{Field, FieldType, Widget};
