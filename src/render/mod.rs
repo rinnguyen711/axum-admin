@@ -14,6 +14,10 @@ impl AdminRenderer {
     pub fn with_overrides(overrides: Vec<(String, String)>) -> Self {
         let mut env = Environment::new();
 
+        env.add_filter("basename", |value: String| -> String {
+            value.rsplit('/').next().unwrap_or(&value).to_string()
+        });
+
         // Built-in templates
         env.add_template_owned("layout.html", include_str!("../../templates/layout.html").to_string()).unwrap();
         env.add_template_owned("login.html", include_str!("../../templates/login.html").to_string()).unwrap();
