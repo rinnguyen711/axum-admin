@@ -184,8 +184,14 @@ pub(super) async fn parse_multipart(
 
                 match filename {
                     Some(fname) if !fname.is_empty() => {
+                        // Strip path components from client-provided filename (e.g. "../../../passwd" → "passwd")
+                        let safe_filename = std::path::Path::new(&fname)
+                            .file_name()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("unnamed")
+                            .to_string();
                         files.insert(name, FileUpload {
-                            filename: fname,
+                            filename: safe_filename,
                             content_type,
                             data,
                         });
