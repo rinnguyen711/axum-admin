@@ -2,6 +2,7 @@ use crate::{
     app::AdminAppState,
     render::context::{EntityRef, FieldContext, FormContext, NavItem, RowContext},
 };
+use axum::body::Bytes;
 use axum::response::Html;
 use form_urlencoded;
 use serde_json::Value;
@@ -144,6 +145,64 @@ pub(super) fn filter_fields_to_context(fields: &[&crate::field::Field]) -> Vec<F
             selected_ids: vec![],
         }
     }).collect()
+}
+
+pub(super) struct FileUpload {
+    pub filename: String,
+    pub content_type: String,
+    pub data: Bytes,
+}
+
+pub(super) struct MultipartData {
+    pub fields: HashMap<String, Value>,
+    pub files: HashMap<String, FileUpload>,
+}
+
+pub(super) async fn parse_multipart(
+    mut multipart: axum::extract::Multipart,
+) -> Result<MultipartData, String> {
+    let mut fields = HashMap::new();
+    let mut files = HashMap::new();
+
+    loop {
+        match multipart.next_field().await {
+            Ok(Some(field)) => {
+                let name = match field.name() {
+                    Some(n) => n.to_string(),
+                    None => continue,
+                };
+                let filename = field.file_name().map(|s| s.to_string());
+                let content_type = field
+                    .content_type()
+                    .map(|ct| ct.to_string())
+                    .unwrap_or_default();
+
+                let data = field
+                    .bytes()
+                    .await
+                    .map_err(|e| format!("multipart read error: {e}"))?;
+
+                match filename {
+                    Some(fname) if !fname.is_empty() => {
+                        files.insert(name, FileUpload {
+                            filename: fname,
+                            content_type,
+                            data,
+                        });
+                    }
+                    _ => {
+                        // text part
+                        let text = String::from_utf8_lossy(&data).into_owned();
+                        fields.insert(name, Value::String(text));
+                    }
+                }
+            }
+            Ok(None) => break,
+            Err(e) => return Err(format!("multipart error: {e}")),
+        }
+    }
+
+    Ok(MultipartData { fields, files })
 }
 
 /// Build template context for a list of fields.
