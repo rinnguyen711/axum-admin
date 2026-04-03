@@ -190,6 +190,9 @@ pub(super) async fn entity_list(
         export_columns,
         flash_success: None,
         flash_error: None,
+        can_create: true,
+        can_edit: true,
+        can_delete: true,
     };
 
     let template = if is_htmx { "list_table.html" } else { "list.html" };
@@ -223,6 +226,7 @@ pub(super) async fn entity_create_form(
         csrf_token,
         flash_success: None,
         flash_error: None,
+        can_save: true,
     };
     Html(state.renderer.render("form.html", ctx)).into_response()
 }
@@ -391,6 +395,7 @@ pub(super) async fn entity_create_submit(
                 csrf_token,
                 flash_success: None,
                 flash_error: None,
+                can_save: true,
             };
             Html(state.renderer.render("form.html", ctx)).into_response()
         }
@@ -446,6 +451,7 @@ pub(super) async fn entity_edit_form(
         csrf_token,
         flash_success: None,
         flash_error: None,
+        can_save: true,
     };
     Html(state.renderer.render("form.html", ctx)).into_response()
 }
@@ -539,6 +545,7 @@ pub(super) async fn entity_edit_submit(
                 csrf_token,
                 flash_success: None,
                 flash_error: None,
+                can_save: true,
             };
             Html(state.renderer.render("form.html", ctx)).into_response()
         }

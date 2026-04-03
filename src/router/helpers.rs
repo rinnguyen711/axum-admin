@@ -419,6 +419,7 @@ pub(super) async fn render_form_error(
         csrf_token,
         flash_success: None,
         flash_error: None,
+        can_save: true,
     };
     Html(state.renderer.render("form.html", ctx))
 }

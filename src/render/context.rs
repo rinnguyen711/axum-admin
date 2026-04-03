@@ -82,6 +82,9 @@ pub struct ListContext {
     pub export_columns: Vec<(String, String)>,  // (name, label)
     pub flash_success: Option<String>,
     pub flash_error: Option<String>,
+    pub can_create: bool,
+    pub can_edit: bool,
+    pub can_delete: bool,
 }
 
 #[derive(Serialize)]
@@ -101,6 +104,7 @@ pub struct FormContext {
     pub csrf_token: String,
     pub flash_success: Option<String>,
     pub flash_error: Option<String>,
+    pub can_save: bool,
 }
 
 #[derive(Serialize)]
