@@ -343,3 +343,31 @@ fn admin_app_builder() {
     assert_eq!(app.entities[0].entity_name, "users");
     assert_eq!(app.entities[1].entity_name, "posts");
 }
+
+#[test]
+fn entity_permissions_default_all_none() {
+    use axum_admin::EntityPermissions;
+    let p = EntityPermissions::default();
+    assert!(p.view.is_none());
+    assert!(p.create.is_none());
+    assert!(p.edit.is_none());
+    assert!(p.delete.is_none());
+}
+
+#[test]
+fn entity_admin_require_view_sets_view() {
+    let e = axum_admin::EntityAdmin::new::<()>("posts")
+        .require_view("posts.view");
+    assert_eq!(e.permissions.view.as_deref(), Some("posts.view"));
+    assert!(e.permissions.create.is_none());
+}
+
+#[test]
+fn entity_admin_require_role_sets_all() {
+    let e = axum_admin::EntityAdmin::new::<()>("posts")
+        .require_role("editor");
+    assert_eq!(e.permissions.view.as_deref(), Some("editor"));
+    assert_eq!(e.permissions.create.as_deref(), Some("editor"));
+    assert_eq!(e.permissions.edit.as_deref(), Some("editor"));
+    assert_eq!(e.permissions.delete.as_deref(), Some("editor"));
+}

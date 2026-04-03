@@ -99,6 +99,18 @@ impl CustomActionBuilder {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct EntityPermissions {
+    /// Required permission to list records and open the edit form.
+    pub view: Option<String>,
+    /// Required permission to create a new record.
+    pub create: Option<String>,
+    /// Required permission to submit an edit.
+    pub edit: Option<String>,
+    /// Required permission to delete a record.
+    pub delete: Option<String>,
+}
+
 pub struct EntityAdmin {
     pub entity_name: String,
     pub label: String,
@@ -115,6 +127,7 @@ pub struct EntityAdmin {
     pub adapter: Option<Box<dyn DataAdapter>>,
     pub before_save: Option<BeforeSaveHook>,
     pub after_delete: Option<AfterDeleteHook>,
+    pub permissions: EntityPermissions,
     _marker: PhantomData<()>,
 }
 
@@ -136,6 +149,7 @@ impl EntityAdmin {
             adapter: None,
             before_save: None,
             after_delete: None,
+            permissions: EntityPermissions::default(),
             _marker: PhantomData,
         }
     }
@@ -163,6 +177,7 @@ impl EntityAdmin {
             adapter: None,
             before_save: None,
             after_delete: None,
+            permissions: EntityPermissions::default(),
             _marker: PhantomData,
         }
     }
@@ -252,6 +267,40 @@ impl EntityAdmin {
         F: Fn(&Value) -> Result<(), AdminError> + Send + Sync + 'static,
     {
         self.after_delete = Some(Box::new(f));
+        self
+    }
+
+    /// Require `perm` to list or view this entity.
+    pub fn require_view(mut self, perm: &str) -> Self {
+        self.permissions.view = Some(perm.to_string());
+        self
+    }
+
+    /// Require `perm` to create a new record.
+    pub fn require_create(mut self, perm: &str) -> Self {
+        self.permissions.create = Some(perm.to_string());
+        self
+    }
+
+    /// Require `perm` to edit an existing record.
+    pub fn require_edit(mut self, perm: &str) -> Self {
+        self.permissions.edit = Some(perm.to_string());
+        self
+    }
+
+    /// Require `perm` to delete a record.
+    pub fn require_delete(mut self, perm: &str) -> Self {
+        self.permissions.delete = Some(perm.to_string());
+        self
+    }
+
+    /// Shortcut: require `role` for all four actions (view, create, edit, delete).
+    pub fn require_role(mut self, role: &str) -> Self {
+        let s = role.to_string();
+        self.permissions.view = Some(s.clone());
+        self.permissions.create = Some(s.clone());
+        self.permissions.edit = Some(s.clone());
+        self.permissions.delete = Some(s);
         self
     }
 }

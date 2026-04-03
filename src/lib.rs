@@ -15,7 +15,7 @@ pub use storage::{FileStorage, LocalStorage};
 pub use error::AdminError;
 pub use field::{Field, FieldType, Widget};
 pub use adapter::{DataAdapter, ManyToManyAdapter, ListParams, SortOrder};
-pub use entity::{EntityAdmin, EntityGroupAdmin, CustomAction, ActionTarget, ActionContext, ActionResult};
+pub use entity::{EntityAdmin, EntityGroupAdmin, EntityPermissions, CustomAction, ActionTarget, ActionContext, ActionResult};
 pub use app::AdminApp;
 pub use auth::{AdminAuth, AdminUser, DefaultAdminAuth, has_permission};
 pub use render::context;
