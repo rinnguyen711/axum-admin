@@ -393,6 +393,7 @@ pub(super) async fn render_form_error(
     err: crate::error::AdminError,
     is_create: bool,
     csrf_token: String,
+    can_save: bool,
 ) -> Html<String> {
     let errors = match err {
         crate::error::AdminError::ValidationError(e) => e,
@@ -419,7 +420,7 @@ pub(super) async fn render_form_error(
         csrf_token,
         flash_success: None,
         flash_error: None,
-        can_save: true,
+        can_save,
     };
     Html(state.renderer.render("form.html", ctx))
 }

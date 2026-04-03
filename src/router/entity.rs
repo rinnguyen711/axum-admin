@@ -1,5 +1,6 @@
 use crate::{
     app::AdminAppState,
+    auth::{has_permission, AdminUser},
     render::context::{
         ActionContext as ActionCtx, FormContext, ListContext, NavItem,
     },
@@ -60,6 +61,7 @@ pub(super) async fn entity_list(
     RawQuery(raw_query): RawQuery,
     headers: axum::http::HeaderMap,
     Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
 ) -> Response {
     let is_htmx = headers.contains_key("hx-request");
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
@@ -68,6 +70,16 @@ pub(super) async fn entity_list(
             return (axum::http::StatusCode::NOT_FOUND, "Entity not found").into_response()
         }
     };
+
+    // Permission check: view is required to list
+    if !has_permission(&user, &entity.permissions.view) {
+        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+    }
+
+    let can_create = has_permission(&user, &entity.permissions.create);
+    let can_edit = has_permission(&user, &entity.permissions.edit);
+    let can_delete = has_permission(&user, &entity.permissions.delete);
+
     let adapter = match &entity.adapter {
         Some(a) => a,
         None => {
@@ -190,9 +202,9 @@ pub(super) async fn entity_list(
         export_columns,
         flash_success: None,
         flash_error: None,
-        can_create: true,
-        can_edit: true,
-        can_delete: true,
+        can_create,
+        can_edit,
+        can_delete,
     };
 
     let template = if is_htmx { "list_table.html" } else { "list.html" };
@@ -203,11 +215,16 @@ pub(super) async fn entity_create_form(
     cookies: Cookies,
     Path(entity_name): Path<String>,
     Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
 ) -> Response {
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
+
+    if !has_permission(&user, &entity.permissions.create) {
+        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+    }
 
     let csrf_token = get_or_create_csrf(&cookies);
     let ctx = FormContext {
@@ -311,6 +328,7 @@ pub(super) async fn entity_create_submit(
     cookies: Cookies,
     Path(entity_name): Path<String>,
     Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
     multipart: Multipart,
 ) -> Response {
     let multipart_data = match parse_multipart(multipart).await {
@@ -328,6 +346,10 @@ pub(super) async fn entity_create_submit(
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
+
+    if !has_permission(&user, &entity.permissions.create) {
+        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+    }
     let adapter = match &entity.adapter {
         Some(a) => a,
         None => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "No adapter").into_response(),
@@ -357,13 +379,13 @@ pub(super) async fn entity_create_submit(
     if !field_errors.is_empty() {
         return render_form_error(
             &state, entity, &entity_name, "",
-            data, crate::error::AdminError::ValidationError(field_errors), true, csrf_token,
+            data, crate::error::AdminError::ValidationError(field_errors), true, csrf_token, true,
         ).await.into_response();
     }
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token)
+            return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token, true)
                 .await.into_response();
         }
     }
@@ -407,11 +429,22 @@ pub(super) async fn entity_edit_form(
     cookies: Cookies,
     Path((entity_name, id)): Path<(String, String)>,
     Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
 ) -> Response {
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
+
+    // Edit form: requires edit permission if set, else view permission if set, else allowed
+    let edit_perm = entity.permissions.edit.as_ref()
+        .or(entity.permissions.view.as_ref())
+        .cloned();
+    if !has_permission(&user, &edit_perm) {
+        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+    }
+    let can_save = has_permission(&user, &entity.permissions.edit);
+
     let adapter = match &entity.adapter {
         Some(a) => a,
         None => {
@@ -451,7 +484,7 @@ pub(super) async fn entity_edit_form(
         csrf_token,
         flash_success: None,
         flash_error: None,
-        can_save: true,
+        can_save,
     };
     Html(state.renderer.render("form.html", ctx)).into_response()
 }
@@ -460,6 +493,7 @@ pub(super) async fn entity_edit_submit(
     cookies: Cookies,
     Path((entity_name, id)): Path<(String, String)>,
     Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
     multipart: Multipart,
 ) -> Response {
     let multipart_data = match parse_multipart(multipart).await {
@@ -477,6 +511,10 @@ pub(super) async fn entity_edit_submit(
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
+
+    if !has_permission(&user, &entity.permissions.edit) {
+        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+    }
     let adapter = match &entity.adapter {
         Some(a) => a,
         None => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "No adapter").into_response(),
@@ -507,13 +545,13 @@ pub(super) async fn entity_edit_submit(
     if !field_errors.is_empty() {
         return render_form_error(
             &state, entity, &entity_name, &id,
-            data, crate::error::AdminError::ValidationError(field_errors), false, csrf_token,
+            data, crate::error::AdminError::ValidationError(field_errors), false, csrf_token, true,
         ).await.into_response();
     }
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token)
+            return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token, true)
                 .await.into_response();
         }
     }
@@ -557,11 +595,17 @@ pub(super) async fn entity_delete(
     Path((entity_name, id)): Path<(String, String)>,
     headers: axum::http::HeaderMap,
     Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
 ) -> Response {
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
+
+    if !has_permission(&user, &entity.permissions.delete) {
+        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+    }
+
     let adapter = match &entity.adapter {
         Some(a) => a,
         None => {
@@ -594,12 +638,17 @@ pub(super) async fn entity_delete(
 pub(super) async fn entity_action(
     Path((entity_name, action_name)): Path<(String, String)>,
     Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
     axum::extract::RawForm(body): axum::extract::RawForm,
 ) -> Response {
     let entity = match state.entities.iter().find(|e| e.entity_name == entity_name) {
         Some(e) => e,
         None => return (axum::http::StatusCode::NOT_FOUND, "Entity not found").into_response(),
     };
+
+    if !has_permission(&user, &entity.permissions.edit) {
+        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+    }
 
     // Parse repeated form fields manually (serde_urlencoded doesn't support Vec for repeated keys)
     let pairs: Vec<(String, String)> = form_urlencoded::parse(&body)
