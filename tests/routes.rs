@@ -156,3 +156,83 @@ async fn fk_field_renders_select_with_options() {
     assert!(body.contains(r#"name="category_id""#), "Expected category_id field");
     assert!(body.contains("<option"), "Expected <option> elements for FK field");
 }
+
+#[tokio::test]
+async fn file_upload_create_stores_file() {
+    use std::sync::Arc;
+    use axum_admin::{LocalStorage, Field};
+
+    struct FileStubAdapter;
+
+    #[async_trait]
+    impl DataAdapter for FileStubAdapter {
+        async fn list(&self, _p: ListParams) -> Result<Vec<HashMap<String, Value>>, AdminError> { Ok(vec![]) }
+        async fn get(&self, _id: &Value) -> Result<HashMap<String, Value>, AdminError> {
+            Ok(HashMap::from([
+                ("id".to_string(), Value::from(1)),
+                ("avatar".to_string(), Value::Null),
+            ]))
+        }
+        async fn create(&self, data: HashMap<String, Value>) -> Result<Value, AdminError> {
+            if let Some(Value::String(url)) = data.get("avatar") {
+                assert!(url.starts_with("/media/"), "url should start with /media/, got: {url}");
+            } else {
+                panic!("avatar should be a String URL in data, got: {:?}", data.get("avatar"));
+            }
+            Ok(Value::from(1))
+        }
+        async fn update(&self, _id: &Value, _d: HashMap<String, Value>) -> Result<(), AdminError> { Ok(()) }
+        async fn delete(&self, _id: &Value) -> Result<(), AdminError> { Ok(()) }
+        async fn count(&self, _p: &ListParams) -> Result<u64, AdminError> { Ok(0) }
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Arc::new(LocalStorage::new(dir.path(), "/media"));
+
+    let app = AdminApp::new()
+        .auth(Box::new(axum_admin::auth::DefaultAdminAuth::new().add_user("admin", "secret")))
+        .register(
+            EntityAdmin::new::<()>("items")
+                .field(Field::image("avatar", storage))
+                .adapter(Box::new(FileStubAdapter)),
+        )
+        .into_router();
+
+    let config = axum_test::TestServerConfig { save_cookies: true, ..Default::default() };
+    let server = axum_test::TestServer::new_with_config(app, config).unwrap();
+
+    // Log in
+    let login = server.post("/admin/login")
+        .form(&[("username", "admin"), ("password", "secret")])
+        .await;
+    assert_eq!(login.status_code(), 302);
+
+    // Get CSRF token from create form
+    let form_page = server.get("/admin/items/new").await;
+    let body = form_page.text();
+    let csrf_start = body.find("name=\"csrf_token\" value=\"").unwrap() + 25;
+    let csrf_end = body[csrf_start..].find('"').unwrap() + csrf_start;
+    let csrf_token = body[csrf_start..csrf_end].to_string();
+
+    // Submit multipart form with a fake image file
+    let response = server
+        .post("/admin/items/new")
+        .multipart(
+            axum_test::multipart::MultipartForm::new()
+                .add_text("csrf_token", &csrf_token)
+                .add_part(
+                    "avatar",
+                    axum_test::multipart::Part::bytes(b"fakepng".to_vec())
+                        .file_name("test.png")
+                        .mime_type("image/png"),
+                ),
+        )
+        .await;
+
+    // Should redirect to list on success
+    assert_eq!(response.status_code(), 303, "expected redirect, got: {}", response.text());
+
+    // File should exist on disk
+    let files: Vec<_> = std::fs::read_dir(dir.path()).unwrap().collect();
+    assert_eq!(files.len(), 1, "expected 1 file in upload dir");
+}
