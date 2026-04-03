@@ -104,3 +104,35 @@ async fn login_post_wrong_credentials_returns_login_page() {
         .await;
     assert_eq!(resp.status_code(), StatusCode::OK);
 }
+
+#[test]
+fn admin_user_superuser_constructor() {
+    let user = axum_admin::auth::AdminUser::superuser("alice", "sess-1");
+    assert_eq!(user.username, "alice");
+    assert_eq!(user.session_id, "sess-1");
+    assert!(user.permissions.is_empty());
+}
+
+#[test]
+fn has_permission_none_required_always_true() {
+    let user = axum_admin::auth::AdminUser { username: "a".into(), session_id: "s".into(), permissions: vec!["x".into()] };
+    assert!(axum_admin::auth::has_permission(&user, &None));
+}
+
+#[test]
+fn has_permission_empty_permissions_is_superuser() {
+    let user = axum_admin::auth::AdminUser { username: "a".into(), session_id: "s".into(), permissions: vec![] };
+    assert!(axum_admin::auth::has_permission(&user, &Some("anything".into())));
+}
+
+#[test]
+fn has_permission_grants_when_present() {
+    let user = axum_admin::auth::AdminUser { username: "a".into(), session_id: "s".into(), permissions: vec!["posts.view".into()] };
+    assert!(axum_admin::auth::has_permission(&user, &Some("posts.view".into())));
+}
+
+#[test]
+fn has_permission_denies_when_absent() {
+    let user = axum_admin::auth::AdminUser { username: "a".into(), session_id: "s".into(), permissions: vec!["posts.view".into()] };
+    assert!(!axum_admin::auth::has_permission(&user, &Some("posts.delete".into())));
+}

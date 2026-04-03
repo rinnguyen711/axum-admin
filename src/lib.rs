@@ -17,7 +17,7 @@ pub use field::{Field, FieldType, Widget};
 pub use adapter::{DataAdapter, ManyToManyAdapter, ListParams, SortOrder};
 pub use entity::{EntityAdmin, EntityGroupAdmin, CustomAction, ActionTarget, ActionContext, ActionResult};
 pub use app::AdminApp;
-pub use auth::{AdminAuth, AdminUser, DefaultAdminAuth};
+pub use auth::{AdminAuth, AdminUser, DefaultAdminAuth, has_permission};
 pub use render::context;
 pub use validator::{
     Validator, AsyncValidator,
