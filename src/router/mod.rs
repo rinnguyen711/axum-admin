@@ -12,6 +12,7 @@ use axum::{
     routing::{delete, get, post},
     Router,
 };
+use axum::extract::DefaultBodyLimit;
 use tower_cookies::CookieManagerLayer;
 use axum::extract::Extension;
 
@@ -38,7 +39,7 @@ async fn serve_admin_css() -> impl IntoResponse {
 
 impl AdminApp {
     pub fn into_router(self) -> Router {
-        let (auth, state) = self.into_state();
+        let (auth, state, upload_limit) = self.into_state();
 
         let protected = Router::new()
             .route("/admin", get(|| async { Redirect::permanent("/admin/") }))
@@ -54,7 +55,8 @@ impl AdminApp {
             .route("/admin/:entity/:id/", post(entity::entity_edit_submit))
             .route("/admin/:entity/:id/delete", delete(entity::entity_delete))
             .route("/admin/:entity/action/:action_name", post(entity::entity_action))
-            .route_layer(middleware::from_fn(require_auth));
+            .route_layer(middleware::from_fn(require_auth))
+            .layer(DefaultBodyLimit::max(upload_limit));
 
         Router::new()
             .route("/admin/login", get(auth::login_page))

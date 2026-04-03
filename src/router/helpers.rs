@@ -143,6 +143,7 @@ pub(super) fn filter_fields_to_context(fields: &[&crate::field::Field]) -> Vec<F
             help_text: None,
             options,
             selected_ids: vec![],
+            accept: vec![],
         }
     }).collect()
 }
@@ -271,6 +272,11 @@ pub(super) async fn fields_to_context(
             FieldType::File { .. } => ("File".to_string(), vec![], vec![]),
             FieldType::Image { .. } => ("Image".to_string(), vec![], vec![]),
         };
+        let accept = match &f.field_type {
+            FieldType::File { accept, .. } => accept.clone(),
+            FieldType::Image { .. } => vec!["image/*".to_string()],
+            _ => vec![],
+        };
         result.push(FieldContext {
             name: f.name.clone(),
             label: f.label.clone(),
@@ -283,6 +289,7 @@ pub(super) async fn fields_to_context(
             help_text: f.help_text.clone(),
             options,
             selected_ids,
+            accept,
         });
     }
     result

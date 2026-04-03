@@ -37,6 +37,8 @@ pub struct FieldContext {
     pub options: Vec<(String, String)>,
     /// Populated for ManyToMany fields: the IDs currently selected for this record.
     pub selected_ids: Vec<String>,
+    /// Populated for File fields: the accepted MIME types (e.g. ["application/pdf"]).
+    pub accept: Vec<String>,
 }
 
 #[derive(Serialize)]

@@ -147,7 +147,7 @@
         </label>
       </div>
       {% endif %}
-      <input type="file" name="{{ field.name }}"
+      <input type="file" name="{{ field.name }}"{% if field.accept %} accept="{{ field.accept | join(',') }}"{% endif %}
              class="block w-full text-sm text-zinc-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 border {% if errors[field.name] %}border-red-400{% else %}border-zinc-200{% endif %} rounded-md p-1">
 
       {% elif field.field_type == "Image" %}

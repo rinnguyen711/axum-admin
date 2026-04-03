@@ -29,6 +29,8 @@ pub struct AdminApp {
     pub auth: Option<Arc<dyn AdminAuth>>,
     pub(crate) templates: Vec<(String, String)>,
     pub(crate) template_dirs: Vec<PathBuf>,
+    /// Maximum multipart body size in bytes. Defaults to 10 MiB.
+    pub upload_limit: usize,
 }
 
 impl AdminApp {
@@ -41,7 +43,15 @@ impl AdminApp {
             auth: None,
             templates: Vec::new(),
             template_dirs: Vec::new(),
+            upload_limit: 10 * 1024 * 1024, // 10 MiB
         }
+    }
+
+    /// Set the maximum allowed multipart upload size in bytes.
+    /// Defaults to 10 MiB (10 * 1024 * 1024).
+    pub fn upload_limit(mut self, bytes: usize) -> Self {
+        self.upload_limit = bytes;
+        self
     }
 
     pub fn title(mut self, title: &str) -> Self {
@@ -92,7 +102,7 @@ impl AdminApp {
         self
     }
 
-    pub(crate) fn into_state(self) -> (Arc<dyn AdminAuth>, Arc<AdminAppState>) {
+    pub(crate) fn into_state(self) -> (Arc<dyn AdminAuth>, Arc<AdminAppState>, usize) {
         let auth = self
             .auth
             .expect("AdminApp requires .auth() to be configured before calling into_router()");
@@ -117,13 +127,14 @@ impl AdminApp {
         }
         all_templates.extend(self.templates);
 
+        let upload_limit = self.upload_limit;
         let state = Arc::new(AdminAppState {
             title: self.title,
             icon: self.icon,
             entities: self.entities,
             renderer: AdminRenderer::with_overrides(all_templates),
         });
-        (auth, state)
+        (auth, state, upload_limit)
     }
 }
 
