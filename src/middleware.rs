@@ -1,4 +1,4 @@
-use crate::auth::AdminAuth;
+use crate::auth::{AdminAuth, AdminUser};
 use axum::{
     extract::Request,
     http::{header::LOCATION, StatusCode},
@@ -14,13 +14,14 @@ pub const SESSION_COOKIE: &str = "axum_admin_session";
 pub async fn require_auth(
     cookies: Cookies,
     Extension(auth): Extension<Arc<dyn AdminAuth>>,
-    req: Request,
+    mut req: Request,
     next: Next,
 ) -> Response {
     let session_id = cookies.get(SESSION_COOKIE).map(|c| c.value().to_string());
 
     if let Some(sid) = session_id {
-        if let Ok(Some(_user)) = auth.get_session(&sid).await {
+        if let Ok(Some(user)) = auth.get_session(&sid).await {
+            req.extensions_mut().insert(user);
             return next.run(req).await;
         }
     }
