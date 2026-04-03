@@ -153,7 +153,7 @@
       {% elif field.field_type == "Image" %}
       {% if values[field.name] %}
       <div class="mb-1 flex items-center gap-3">
-        <img src="{{ values[field.name] }}" class="h-24 w-auto rounded object-cover border border-zinc-200" alt="">
+        <img src="{{ values[field.name] }}" class="h-24 w-auto rounded object-cover border border-zinc-200" alt="{{ field.label }} preview">
         <label class="flex items-center gap-1 text-sm text-zinc-500 cursor-pointer">
           <input type="checkbox" name="{{ field.name }}__clear" value="on"> Clear
         </label>
