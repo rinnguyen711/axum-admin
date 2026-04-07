@@ -101,3 +101,14 @@ impl AdminAuth for DefaultAdminAuth {
         Ok(sessions.get(session_id).cloned())
     }
 }
+
+/// Returns true if the user can perform an action requiring `required` permission.
+/// - `None` required → always allowed.
+/// - `is_superuser` → always allowed.
+/// - Otherwise: no enforcer available yet (Casbin wired in Task 6), defaults to false for non-superusers.
+pub fn check_permission(user: &AdminUser, required: &Option<String>) -> bool {
+    match required {
+        None => true,
+        Some(_) => user.is_superuser,
+    }
+}
