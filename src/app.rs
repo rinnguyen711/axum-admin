@@ -19,6 +19,10 @@ pub struct AdminAppState {
     pub icon: String,
     pub entities: Vec<EntityAdmin>,
     pub renderer: AdminRenderer,
+    #[cfg(feature = "seaorm")]
+    pub enforcer: Option<std::sync::Arc<std::sync::RwLock<casbin::Enforcer>>>,
+    #[cfg(not(feature = "seaorm"))]
+    pub enforcer: Option<()>,
 }
 
 pub struct AdminApp {
@@ -31,6 +35,10 @@ pub struct AdminApp {
     pub(crate) template_dirs: Vec<PathBuf>,
     /// Maximum multipart body size in bytes. Defaults to 10 MiB.
     pub upload_limit: usize,
+    #[cfg(feature = "seaorm")]
+    pub(crate) enforcer: Option<std::sync::Arc<std::sync::RwLock<casbin::Enforcer>>>,
+    #[cfg(not(feature = "seaorm"))]
+    pub(crate) enforcer: Option<()>,
 }
 
 impl AdminApp {
@@ -44,6 +52,7 @@ impl AdminApp {
             templates: Vec::new(),
             template_dirs: Vec::new(),
             upload_limit: 10 * 1024 * 1024, // 10 MiB
+            enforcer: None,
         }
     }
 
@@ -81,6 +90,13 @@ impl AdminApp {
 
     pub fn auth(mut self, auth: Box<dyn AdminAuth>) -> Self {
         self.auth = Some(Arc::from(auth));
+        self
+    }
+
+    #[cfg(feature = "seaorm")]
+    pub fn seaorm_auth(mut self, auth: crate::adapters::seaorm_auth::SeaOrmAdminAuth) -> Self {
+        self.enforcer = Some(auth.enforcer());
+        self.auth = Some(std::sync::Arc::new(auth) as std::sync::Arc<dyn crate::auth::AdminAuth>);
         self
     }
 
@@ -133,6 +149,7 @@ impl AdminApp {
             icon: self.icon,
             entities: self.entities,
             renderer: AdminRenderer::with_overrides(all_templates),
+            enforcer: self.enforcer,
         });
         (auth, state, upload_limit)
     }

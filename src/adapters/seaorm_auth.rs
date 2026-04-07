@@ -26,7 +26,9 @@ pub type AuthUserActiveModel = ActiveModel;
 use crate::auth::{AdminAuth, AdminUser};
 use crate::error::AdminError;
 use async_trait::async_trait;
+use casbin::{CoreApi, DefaultModel, Enforcer};
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+use sea_orm_adapter::SeaOrmAdapter;
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
@@ -36,13 +38,28 @@ use uuid::Uuid;
 pub struct SeaOrmAdminAuth {
     pub(crate) db: DatabaseConnection,
     sessions: Arc<RwLock<HashMap<String, AdminUser>>>,
+    enforcer: Arc<RwLock<Enforcer>>,
 }
 
 impl SeaOrmAdminAuth {
     pub async fn new(db: DatabaseConnection) -> Result<Self, AdminError> {
+        let model_text = "[request_definition]\nr = sub, obj, act\n\n[policy_definition]\np = sub, obj, act\n\n[role_definition]\ng = _, _\n\n[policy_effect]\ne = some(where (p.eft == allow))\n\n[matchers]\nm = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act\n";
+        let model = DefaultModel::from_str(model_text)
+            .await
+            .map_err(|e| AdminError::Internal(e.to_string()))?;
+
+        let adapter = SeaOrmAdapter::new(db.clone())
+            .await
+            .map_err(|e| AdminError::Internal(e.to_string()))?;
+
+        let enforcer = Enforcer::new(model, adapter)
+            .await
+            .map_err(|e| AdminError::Internal(e.to_string()))?;
+
         Ok(Self {
             db,
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            enforcer: Arc::new(RwLock::new(enforcer)),
         })
     }
 
@@ -137,6 +154,10 @@ impl SeaOrmAdminAuth {
 
     pub fn db(&self) -> &DatabaseConnection {
         &self.db
+    }
+
+    pub fn enforcer(&self) -> Arc<RwLock<Enforcer>> {
+        Arc::clone(&self.enforcer)
     }
 }
 

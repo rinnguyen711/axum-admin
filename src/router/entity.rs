@@ -72,13 +72,13 @@ pub(super) async fn entity_list(
     };
 
     // Permission check: view is required to list
-    if !check_permission(&user, &entity.permissions.view) {
+    if !check_permission(&user, &entity.permissions.view, state.enforcer.as_ref()) {
         return (StatusCode::FORBIDDEN, "Forbidden").into_response();
     }
 
-    let can_create = check_permission(&user, &entity.permissions.create);
-    let can_edit = check_permission(&user, &entity.permissions.edit);
-    let can_delete = check_permission(&user, &entity.permissions.delete);
+    let can_create = check_permission(&user, &entity.permissions.create, state.enforcer.as_ref());
+    let can_edit = check_permission(&user, &entity.permissions.edit, state.enforcer.as_ref());
+    let can_delete = check_permission(&user, &entity.permissions.delete, state.enforcer.as_ref());
 
     let adapter = match &entity.adapter {
         Some(a) => a,
@@ -222,7 +222,7 @@ pub(super) async fn entity_create_form(
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
 
-    if !check_permission(&user, &entity.permissions.create) {
+    if !check_permission(&user, &entity.permissions.create, state.enforcer.as_ref()) {
         return (StatusCode::FORBIDDEN, "Forbidden").into_response();
     }
 
@@ -347,7 +347,7 @@ pub(super) async fn entity_create_submit(
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
 
-    if !check_permission(&user, &entity.permissions.create) {
+    if !check_permission(&user, &entity.permissions.create, state.enforcer.as_ref()) {
         return (StatusCode::FORBIDDEN, "Forbidden").into_response();
     }
     let adapter = match &entity.adapter {
@@ -440,10 +440,10 @@ pub(super) async fn entity_edit_form(
     let edit_perm = entity.permissions.edit.as_ref()
         .or(entity.permissions.view.as_ref())
         .cloned();
-    if !check_permission(&user, &edit_perm) {
+    if !check_permission(&user, &edit_perm, state.enforcer.as_ref()) {
         return (StatusCode::FORBIDDEN, "Forbidden").into_response();
     }
-    let can_save = check_permission(&user, &entity.permissions.edit);
+    let can_save = check_permission(&user, &entity.permissions.edit, state.enforcer.as_ref());
 
     let adapter = match &entity.adapter {
         Some(a) => a,
@@ -512,7 +512,7 @@ pub(super) async fn entity_edit_submit(
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
 
-    if !check_permission(&user, &entity.permissions.edit) {
+    if !check_permission(&user, &entity.permissions.edit, state.enforcer.as_ref()) {
         return (StatusCode::FORBIDDEN, "Forbidden").into_response();
     }
     let adapter = match &entity.adapter {
@@ -602,7 +602,7 @@ pub(super) async fn entity_delete(
         None => return (axum::http::StatusCode::NOT_FOUND, "Not found").into_response(),
     };
 
-    if !check_permission(&user, &entity.permissions.delete) {
+    if !check_permission(&user, &entity.permissions.delete, state.enforcer.as_ref()) {
         return (StatusCode::FORBIDDEN, "Forbidden").into_response();
     }
 
@@ -646,7 +646,7 @@ pub(super) async fn entity_action(
         None => return (axum::http::StatusCode::NOT_FOUND, "Entity not found").into_response(),
     };
 
-    if !check_permission(&user, &entity.permissions.edit) {
+    if !check_permission(&user, &entity.permissions.edit, state.enforcer.as_ref()) {
         return (StatusCode::FORBIDDEN, "Forbidden").into_response();
     }
 

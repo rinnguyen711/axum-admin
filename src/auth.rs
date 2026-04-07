@@ -102,11 +102,49 @@ impl AdminAuth for DefaultAdminAuth {
     }
 }
 
-/// Returns true if the user can perform an action requiring `required` permission.
+/// Returns true if the user can perform `required` action.
 /// - `None` required → always allowed.
 /// - `is_superuser` → always allowed.
-/// - Otherwise: no enforcer available yet (Casbin wired in Task 6), defaults to false for non-superusers.
-pub fn check_permission(user: &AdminUser, required: &Option<String>) -> bool {
+/// - `enforcer` present → ask Casbin. Permission format: "entity.action" (e.g. "posts.view").
+/// - No enforcer → deny non-superusers (safe default).
+#[cfg(feature = "seaorm")]
+pub fn check_permission(
+    user: &AdminUser,
+    required: &Option<String>,
+    enforcer: Option<&std::sync::Arc<std::sync::RwLock<casbin::Enforcer>>>,
+) -> bool {
+    use casbin::CoreApi;
+    let perm = match required {
+        None => return true,
+        Some(p) => p,
+    };
+    if user.is_superuser {
+        return true;
+    }
+    let enforcer = match enforcer {
+        Some(e) => e,
+        None => return false,
+    };
+    // Parse "entity.action" into (obj, act)
+    let parts: Vec<&str> = perm.splitn(2, '.').collect();
+    let (obj, act) = if parts.len() == 2 {
+        (parts[0], parts[1])
+    } else {
+        (perm.as_str(), "")
+    };
+    enforcer
+        .read()
+        .unwrap()
+        .enforce((user.username.as_str(), obj, act))
+        .unwrap_or(false)
+}
+
+#[cfg(not(feature = "seaorm"))]
+pub fn check_permission(
+    user: &AdminUser,
+    required: &Option<String>,
+    _enforcer: Option<&()>,
+) -> bool {
     match required {
         None => true,
         Some(_) => user.is_superuser,
