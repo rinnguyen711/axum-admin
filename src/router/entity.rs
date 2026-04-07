@@ -1,10 +1,20 @@
 use crate::{
     app::AdminAppState,
-    auth::{has_permission, AdminUser},
+    auth::AdminUser,
     render::context::{
         ActionContext as ActionCtx, FormContext, ListContext, NavItem,
     },
 };
+
+/// Interim permission check: superusers pass all checks; non-superusers are
+/// allowed only when no specific permission is required. Casbin-backed
+/// `check_permission` will replace this in a later task.
+fn has_permission(user: &AdminUser, required: &Option<String>) -> bool {
+    match required {
+        None => true,
+        Some(_) => user.is_superuser,
+    }
+}
 use axum::{
     extract::{Extension, Multipart, Path, Query, RawQuery},
     http::{header, header::LOCATION, StatusCode},

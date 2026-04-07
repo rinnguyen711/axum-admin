@@ -10,34 +10,16 @@ use uuid::Uuid;
 pub struct AdminUser {
     pub username: String,
     pub session_id: String,
-    /// Permission strings this user holds. Empty vec = superuser (full access).
-    pub permissions: Vec<String>,
+    /// true = bypasses all permission checks (superuser access)
+    pub is_superuser: bool,
 }
 
 impl AdminUser {
-    /// Construct a superuser (no permission restrictions).
     pub fn superuser(username: &str, session_id: &str) -> Self {
         Self {
             username: username.to_string(),
             session_id: session_id.to_string(),
-            permissions: vec![],
-        }
-    }
-}
-
-/// Returns true if the user is allowed to perform an action requiring `required`.
-/// - `None` required → always allowed (no restriction on this action).
-/// - Empty `user.permissions` → superuser, always allowed.
-/// - Non-empty `user.permissions` → user must have the exact permission string.
-pub fn has_permission(user: &AdminUser, required: &Option<String>) -> bool {
-    match required {
-        None => true,
-        Some(perm) => {
-            if user.permissions.is_empty() {
-                true
-            } else {
-                user.permissions.contains(perm)
-            }
+            is_superuser: true,
         }
     }
 }
@@ -103,7 +85,7 @@ impl AdminAuth for DefaultAdminAuth {
         let user = AdminUser {
             username: username.to_string(),
             session_id: session_id.clone(),
-            permissions: vec![],
+            is_superuser: true,
         };
 
         self.sessions
