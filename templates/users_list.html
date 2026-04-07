@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block title %}Users – {{ admin_title }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-semibold text-zinc-900">Users</h1>
+  <a href="/admin/users/new"
+     class="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-md hover:bg-zinc-700 transition-colors">
+    Add user
+  </a>
+</div>
+
+<div class="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-zinc-50 border-b border-zinc-200">
+      <tr>
+        <th class="text-left px-4 py-3 font-medium text-zinc-600">Username</th>
+        <th class="text-left px-4 py-3 font-medium text-zinc-600">Active</th>
+        <th class="text-left px-4 py-3 font-medium text-zinc-600">Superuser</th>
+        <th class="text-left px-4 py-3 font-medium text-zinc-600">Created</th>
+        <th class="px-4 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-zinc-100">
+      {% for u in users %}
+      <tr class="hover:bg-zinc-50">
+        <td class="px-4 py-3 font-medium text-zinc-900">{{ u.username }}</td>
+        <td class="px-4 py-3 text-zinc-500">{{ "Yes" if u.is_active else "No" }}</td>
+        <td class="px-4 py-3 text-zinc-500">{{ "Yes" if u.is_superuser else "No" }}</td>
+        <td class="px-4 py-3 text-zinc-500">{{ u.created_at }}</td>
+        <td class="px-4 py-3 text-right">
+          <button hx-delete="/admin/users/{{ u.id }}/delete"
+                  hx-confirm="Delete user {{ u.username }}?"
+                  hx-target="closest tr"
+                  hx-swap="outerHTML swap:1s"
+                  class="text-xs text-red-600 hover:text-red-800 font-medium">
+            Delete
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

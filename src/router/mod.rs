@@ -2,6 +2,7 @@ mod csrf;
 mod helpers;
 mod auth;
 mod entity;
+mod users;
 
 use crate::{app::AdminApp, middleware::require_auth};
 use axum::{
@@ -47,6 +48,12 @@ impl AdminApp {
             .route("/admin/logout", get(auth::logout))
             .route("/admin/change-password", get(auth::change_password_page))
             .route("/admin/change-password", post(auth::change_password_submit))
+            .route("/admin/users/", get(users::user_list))
+            .route("/admin/users/new", get(users::user_create_form))
+            .route("/admin/users/new", post(users::user_create_submit))
+            .route("/admin/users/:id/", get(users::user_edit_form))
+            .route("/admin/users/:id/", post(users::user_edit_submit))
+            .route("/admin/users/:id/delete", delete(users::user_delete))
             .route("/admin/:entity", get(|Path(e): Path<String>| async move {
                 Redirect::permanent(&format!("/admin/{}/", e))
             }))
