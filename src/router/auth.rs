@@ -1,6 +1,6 @@
 use crate::{
     app::AdminAppState,
-    auth::AdminAuth,
+    auth::{AdminAuth, AdminUser},
     middleware::SESSION_COOKIE,
     render::context::LoginContext,
 };
@@ -73,4 +73,103 @@ pub(super) async fn login_submit(
 pub(super) async fn logout(cookies: Cookies) -> Redirect {
     cookies.remove(Cookie::from(SESSION_COOKIE));
     Redirect::to("/admin/login")
+}
+
+#[derive(serde::Serialize)]
+struct ChangePasswordContext {
+    admin_title: String,
+    admin_icon: String,
+    nav: Vec<crate::render::context::NavItem>,
+    current_entity: String,
+    csrf_token: String,
+    error: Option<String>,
+    success: Option<String>,
+    flash_success: Option<String>,
+    flash_error: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+pub(super) struct ChangePasswordForm {
+    current_password: String,
+    new_password: String,
+    confirm_password: String,
+    #[allow(dead_code)]
+    csrf_token: Option<String>,
+}
+
+fn make_change_password_ctx(
+    state: &Arc<AdminAppState>,
+    csrf_token: &str,
+    error: Option<String>,
+    success: Option<String>,
+) -> ChangePasswordContext {
+    ChangePasswordContext {
+        admin_title: state.title.clone(),
+        admin_icon: state.icon.clone(),
+        nav: super::helpers::build_nav(state, ""),
+        current_entity: String::new(),
+        csrf_token: csrf_token.to_string(),
+        error,
+        success,
+        flash_success: None,
+        flash_error: None,
+    }
+}
+
+pub(super) async fn change_password_page(
+    cookies: Cookies,
+    Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(_user): Extension<AdminUser>,
+) -> Html<String> {
+    let csrf_token = get_or_create_csrf(&cookies);
+    let ctx = make_change_password_ctx(&state, &csrf_token, None, None);
+    Html(state.renderer.render("change_password.html", ctx))
+}
+
+pub(super) async fn change_password_submit(
+    cookies: Cookies,
+    Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
+    Form(form): Form<ChangePasswordForm>,
+) -> Html<String> {
+    let csrf_token = get_or_create_csrf(&cookies);
+
+    if form.new_password != form.confirm_password {
+        return Html(state.renderer.render(
+            "change_password.html",
+            make_change_password_ctx(&state, &csrf_token, Some("New passwords do not match.".into()), None),
+        ));
+    }
+    if form.new_password.len() < 8 {
+        return Html(state.renderer.render(
+            "change_password.html",
+            make_change_password_ctx(&state, &csrf_token, Some("New password must be at least 8 characters.".into()), None),
+        ));
+    }
+
+    #[cfg(feature = "seaorm")]
+    if let Some(ref seaorm) = state.seaorm_auth {
+        return match seaorm.change_password(&user.username, &form.current_password, &form.new_password).await {
+            Ok(_) => Html(state.renderer.render(
+                "change_password.html",
+                make_change_password_ctx(&state, &csrf_token, None, Some("Password updated successfully.".into())),
+            )),
+            Err(crate::error::AdminError::Unauthorized) => Html(state.renderer.render(
+                "change_password.html",
+                make_change_password_ctx(&state, &csrf_token, Some("Current password is incorrect.".into()), None),
+            )),
+            Err(e) => Html(state.renderer.render(
+                "change_password.html",
+                make_change_password_ctx(&state, &csrf_token, Some(e.to_string()), None),
+            )),
+        };
+    }
+
+    #[cfg(not(feature = "seaorm"))]
+    let _ = user;
+
+    Html(state.renderer.render(
+        "change_password.html",
+        make_change_password_ctx(&state, &csrf_token, Some("Password change is not supported by the current auth backend.".into()), None),
+    ))
 }

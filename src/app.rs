@@ -23,6 +23,8 @@ pub struct AdminAppState {
     pub enforcer: Option<std::sync::Arc<std::sync::RwLock<casbin::Enforcer>>>,
     #[cfg(not(feature = "seaorm"))]
     pub enforcer: Option<()>,
+    #[cfg(feature = "seaorm")]
+    pub seaorm_auth: Option<std::sync::Arc<crate::adapters::seaorm_auth::SeaOrmAdminAuth>>,
 }
 
 pub struct AdminApp {
@@ -39,6 +41,8 @@ pub struct AdminApp {
     pub(crate) enforcer: Option<std::sync::Arc<std::sync::RwLock<casbin::Enforcer>>>,
     #[cfg(not(feature = "seaorm"))]
     pub(crate) enforcer: Option<()>,
+    #[cfg(feature = "seaorm")]
+    pub(crate) seaorm_auth: Option<std::sync::Arc<crate::adapters::seaorm_auth::SeaOrmAdminAuth>>,
 }
 
 impl AdminApp {
@@ -53,6 +57,8 @@ impl AdminApp {
             template_dirs: Vec::new(),
             upload_limit: 10 * 1024 * 1024, // 10 MiB
             enforcer: None,
+            #[cfg(feature = "seaorm")]
+            seaorm_auth: None,
         }
     }
 
@@ -95,8 +101,10 @@ impl AdminApp {
 
     #[cfg(feature = "seaorm")]
     pub fn seaorm_auth(mut self, auth: crate::adapters::seaorm_auth::SeaOrmAdminAuth) -> Self {
-        self.enforcer = Some(auth.enforcer());
-        self.auth = Some(std::sync::Arc::new(auth) as std::sync::Arc<dyn crate::auth::AdminAuth>);
+        let arc = std::sync::Arc::new(auth);
+        self.enforcer = Some(arc.enforcer());
+        self.auth = Some(arc.clone() as std::sync::Arc<dyn crate::auth::AdminAuth>);
+        self.seaorm_auth = Some(arc);
         self
     }
 
@@ -150,6 +158,8 @@ impl AdminApp {
             entities: self.entities,
             renderer: AdminRenderer::with_overrides(all_templates),
             enforcer: self.enforcer,
+            #[cfg(feature = "seaorm")]
+            seaorm_auth: self.seaorm_auth,
         });
         (auth, state, upload_limit)
     }

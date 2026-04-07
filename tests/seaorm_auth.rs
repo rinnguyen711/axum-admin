@@ -181,4 +181,36 @@ mod tests {
         let user = auth.authenticate("admin", "secret").await.unwrap();
         assert_eq!(user.username, "admin");
     }
+
+    #[tokio::test]
+    async fn change_password_page_returns_200() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+        use axum_test::{TestServer, TestServerConfig};
+        use axum::http::StatusCode;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+        auth.ensure_user("admin", "secret").await.unwrap();
+
+        let app = axum_admin::AdminApp::new()
+            .seaorm_auth(auth)
+            .into_router();
+
+        let config = TestServerConfig {
+            save_cookies: true,
+            ..TestServerConfig::default()
+        };
+        let server = TestServer::new_with_config(app, config).unwrap();
+
+        // Login to get session cookie
+        let login = server
+            .post("/admin/login")
+            .form(&[("username", "admin"), ("password", "secret")])
+            .await;
+        assert_eq!(login.status_code(), StatusCode::FOUND);
+
+        // Change password page returns 200
+        let resp = server.get("/admin/change-password").await;
+        assert_eq!(resp.status_code(), StatusCode::OK);
+    }
 }

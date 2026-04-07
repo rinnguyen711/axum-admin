@@ -45,6 +45,8 @@ impl AdminApp {
             .route("/admin", get(|| async { Redirect::permanent("/admin/") }))
             .route("/admin/", get(entity::admin_home))
             .route("/admin/logout", get(auth::logout))
+            .route("/admin/change-password", get(auth::change_password_page))
+            .route("/admin/change-password", post(auth::change_password_submit))
             .route("/admin/:entity", get(|Path(e): Path<String>| async move {
                 Redirect::permanent(&format!("/admin/{}/", e))
             }))
