@@ -17,4 +17,7 @@ pub enum AdminError {
 
     #[error("error: {0}")]
     Custom(String),
+
+    #[error("internal error: {0}")]
+    Internal(String),
 }

@@ -19,6 +19,8 @@ pub use entity::{EntityAdmin, EntityGroupAdmin, EntityPermissions, CustomAction,
 pub use app::AdminApp;
 pub use auth::{AdminAuth, AdminUser, DefaultAdminAuth};
 pub use render::context;
+#[cfg(feature = "seaorm")]
+pub use adapters::seaorm_auth::SeaOrmAdminAuth;
 pub use validator::{
     Validator, AsyncValidator,
     Required, MinLength, MaxLength, MinValue, MaxValue, RegexValidator, EmailFormat, Unique,
