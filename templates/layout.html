@@ -76,6 +76,24 @@
       {% endfor %}
     </nav>
 
+    {% if show_auth_nav %}
+    <div class="pt-4 border-t border-zinc-200 space-y-1 mb-2">
+      <p class="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-zinc-400">Auth</p>
+      <a href="/admin/users/"
+         class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+                {% if current_entity == '__users' %}bg-zinc-200/60 text-zinc-900 font-semibold{% else %}text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100{% endif %}">
+        <i class="fa-solid fa-users text-xs w-4"></i>
+        Users
+      </a>
+      <a href="/admin/roles/"
+         class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+                {% if current_entity == '__roles' %}bg-zinc-200/60 text-zinc-900 font-semibold{% else %}text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100{% endif %}">
+        <i class="fa-solid fa-shield-halved text-xs w-4"></i>
+        Roles
+      </a>
+    </div>
+    {% endif %}
+
     <div class="pt-4 border-t border-zinc-200 space-y-1">
       <a href="/admin/change-password"
          class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors">
