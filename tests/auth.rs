@@ -122,3 +122,35 @@ fn admin_user_has_is_superuser_field() {
     };
     assert!(user.is_superuser);
 }
+
+#[cfg(feature = "seaorm")]
+mod seaorm_auth_tests {
+    use axum_admin::adapters::migrations::Migrator;
+    use sea_orm::{Database, DatabaseConnection};
+    use sea_orm_migration::MigratorTrait;
+
+    async fn in_memory_db() -> DatabaseConnection {
+        Database::connect("sqlite::memory:")
+            .await
+            .expect("failed to connect")
+    }
+
+    #[tokio::test]
+    async fn migrations_run_and_are_idempotent() {
+        let db = in_memory_db().await;
+
+        // First run — should create tables
+        Migrator::up(&db, None).await.expect("first migration failed");
+
+        // Second run — should be a no-op (IF NOT EXISTS)
+        Migrator::up(&db, None).await.expect("second migration failed");
+    }
+
+    #[tokio::test]
+    async fn seaorm_admin_auth_new_runs_migrations() {
+        use axum_admin::SeaOrmAdminAuth;
+        let db = in_memory_db().await;
+        // SeaOrmAdminAuth::new() should succeed, which means migrations ran
+        SeaOrmAdminAuth::new(db).await.expect("SeaOrmAdminAuth::new failed");
+    }
+}
