@@ -114,22 +114,61 @@ pub async fn check_permission(
     enforcer: Option<&std::sync::Arc<tokio::sync::RwLock<casbin::Enforcer>>>,
 ) -> bool {
     use casbin::CoreApi;
-    let perm = match required {
-        None => return true,
-        Some(p) => p,
-    };
     if user.is_superuser {
         return true;
     }
     let enforcer = match enforcer {
         Some(e) => e,
+        // No enforcer: allow only if no permission required
+        None => return required.is_none(),
+    };
+    // No explicit permission string: default-deny when enforcer is active
+    let perm = match required {
         None => return false,
+        Some(p) => p,
     };
     let parts: Vec<&str> = perm.splitn(2, '.').collect();
     let (obj, act) = if parts.len() == 2 {
         (parts[0], parts[1])
     } else {
         (perm.as_str(), "")
+    };
+    let guard = enforcer.read().await;
+    guard.enforce((user.username.as_str(), obj, act)).unwrap_or(false)
+}
+
+/// Check entity-level permission using Casbin, auto-deriving the permission
+/// string as `"entity_name.action"` when `required` is `None`.
+#[cfg(feature = "seaorm")]
+pub async fn check_entity_permission(
+    user: &AdminUser,
+    entity_name: &str,
+    action: &str,
+    required: &Option<String>,
+    enforcer: Option<&std::sync::Arc<tokio::sync::RwLock<casbin::Enforcer>>>,
+) -> bool {
+    use casbin::CoreApi;
+    if user.is_superuser {
+        return true;
+    }
+    let enforcer = match enforcer {
+        Some(e) => e,
+        None => return required.is_none(),
+    };
+    // Use explicit permission string if set, otherwise default to "entity.action"
+    let perm_owned;
+    let perm = match required {
+        Some(p) => p.as_str(),
+        None => {
+            perm_owned = format!("{}.{}", entity_name, action);
+            &perm_owned
+        }
+    };
+    let parts: Vec<&str> = perm.splitn(2, '.').collect();
+    let (obj, act) = if parts.len() == 2 {
+        (parts[0], parts[1])
+    } else {
+        (perm, "")
     };
     let guard = enforcer.read().await;
     guard.enforce((user.username.as_str(), obj, act)).unwrap_or(false)

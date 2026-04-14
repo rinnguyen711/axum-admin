@@ -211,6 +211,9 @@ where
         let table = sea_orm::EntityName::table_name(&E::default()).to_string();
         let mut cols: Vec<String> = data.keys().cloned().collect();
         cols.sort();
+        if cols.is_empty() {
+            return Err(AdminError::DatabaseError("No fields provided for insert".to_string()));
+        }
         let placeholders = cols.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
         let sql = format!(
             "INSERT INTO {} ({}) VALUES ({})",
