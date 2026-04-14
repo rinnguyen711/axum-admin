@@ -1,4 +1,4 @@
-use crate::auth::{AdminAuth, AdminUser};
+use crate::auth::AdminAuth;
 use axum::{
     extract::Request,
     http::{header::LOCATION, StatusCode},

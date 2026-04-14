@@ -132,10 +132,10 @@ pub fn check_permission(
     } else {
         (perm.as_str(), "")
     };
-    enforcer
-        .blocking_read()
-        .enforce((user.username.as_str(), obj, act))
-        .unwrap_or(false)
+    match enforcer.try_read() {
+        Ok(guard) => guard.enforce((user.username.as_str(), obj, act)).unwrap_or(false),
+        Err(_) => false,
+    }
 }
 
 #[cfg(not(feature = "seaorm"))]

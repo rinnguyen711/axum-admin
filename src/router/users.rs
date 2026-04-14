@@ -148,7 +148,7 @@ pub(super) async fn user_create_form(
 pub(super) async fn user_create_submit(
     cookies: Cookies,
     Extension(state): Extension<Arc<AdminAppState>>,
-    Extension(user): Extension<AdminUser>,
+    Extension(_user): Extension<AdminUser>,
     Form(form): Form<CreateUserForm>,
 ) -> Response {
     #[cfg(feature = "seaorm")]

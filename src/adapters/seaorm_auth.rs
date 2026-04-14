@@ -116,7 +116,6 @@ impl SeaOrmAdminAuth {
     /// Assign a role ("admin" or "viewer") to a user.
     /// Removes any previously assigned role first (a user has exactly one role).
     pub async fn assign_role(&self, username: &str, role: &str) -> Result<(), AdminError> {
-        use casbin::MgmtApi;
         use casbin::RbacApi;
         let mut enforcer = self.enforcer.write().await;
         // Remove existing role assignments for this user

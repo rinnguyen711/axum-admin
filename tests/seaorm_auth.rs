@@ -87,7 +87,7 @@ mod tests {
         // add policy: alice can view posts
         {
             let arc = auth.enforcer();
-            let mut enforcer = arc.write().unwrap();
+            let mut enforcer = arc.write().await;
             enforcer.add_policy(vec![
                 "alice".to_string(), "posts".to_string(), "view".to_string()
             ]).await.unwrap();
