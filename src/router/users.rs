@@ -21,6 +21,7 @@ struct UserRow {
     username: String,
     is_active: bool,
     is_superuser: bool,
+    role: Option<String>,
     created_at: String,
 }
 
@@ -54,6 +55,7 @@ pub(super) struct CreateUserForm {
     username: String,
     password: String,
     is_superuser: Option<String>,
+    role: Option<String>,
     #[allow(dead_code)]
     csrf_token: Option<String>,
 }
@@ -80,6 +82,11 @@ pub(super) async fn user_list(
             username: u.username.clone(),
             is_active: u.is_active,
             is_superuser: u.is_superuser,
+            role: if u.is_superuser {
+                None
+            } else {
+                seaorm.get_user_role(&u.username)
+            },
             created_at: u.created_at.format("%Y-%m-%d %H:%M").to_string(),
         }).collect();
 
@@ -148,7 +155,13 @@ pub(super) async fn user_create_submit(
     if let Some(ref seaorm) = state.seaorm_auth {
         let is_superuser = form.is_superuser.as_deref() == Some("on");
         match seaorm.create_user(&form.username, &form.password, is_superuser).await {
-            Ok(_) => return (StatusCode::FOUND, [(LOCATION, "/admin/users/")]).into_response(),
+            Ok(_) => {
+                if !is_superuser {
+                    let role = form.role.as_deref().unwrap_or("viewer");
+                    let _ = seaorm.assign_role(&form.username, role).await;
+                }
+                return (StatusCode::FOUND, [(LOCATION, "/admin/users/")]).into_response();
+            }
             Err(e) => {
                 let csrf_token = get_or_create_csrf(&cookies);
                 let ctx = UserFormContext {

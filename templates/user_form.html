@@ -10,7 +10,8 @@
   </div>
   {% endif %}
 
-  <form method="post" action="/admin/users/new" class="space-y-4">
+  <form method="post" action="/admin/users/new" class="space-y-4"
+        x-data="{ isSuperuser: false }">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
     <div>
       <label class="block text-sm font-medium text-zinc-700 mb-1">Username</label>
@@ -22,8 +23,17 @@
       <input type="password" name="password" required
              class="w-full px-3 py-2 border border-zinc-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" />
     </div>
+    <div x-show="!isSuperuser">
+      <label class="block text-sm font-medium text-zinc-700 mb-1">Role</label>
+      <select name="role"
+              class="w-full px-3 py-2 border border-zinc-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900">
+        <option value="admin">Admin</option>
+        <option value="viewer">Viewer</option>
+      </select>
+    </div>
     <div class="flex items-center gap-2">
       <input type="checkbox" name="is_superuser" id="is_superuser" value="on"
+             x-model="isSuperuser"
              class="rounded border-zinc-300" />
       <label for="is_superuser" class="text-sm font-medium text-zinc-700">Superuser</label>
     </div>
