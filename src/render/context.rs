@@ -85,6 +85,7 @@ pub struct ListContext {
     pub can_create: bool,
     pub can_edit: bool,
     pub can_delete: bool,
+    pub show_auth_nav: bool,
 }
 
 #[derive(Serialize)]
@@ -105,6 +106,7 @@ pub struct FormContext {
     pub flash_success: Option<String>,
     pub flash_error: Option<String>,
     pub can_save: bool,
+    pub show_auth_nav: bool,
 }
 
 #[derive(Serialize)]

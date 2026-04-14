@@ -42,6 +42,7 @@ pub(super) async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) 
         current_entity: String,
         flash_success: Option<String>,
         flash_error: Option<String>,
+        show_auth_nav: bool,
     }
     let ctx = HomeContext {
         admin_title: state.title.clone(),
@@ -51,6 +52,7 @@ pub(super) async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) 
         current_entity: String::new(),
         flash_success: None,
         flash_error: None,
+        show_auth_nav: state.show_auth_nav,
     };
     Html(state.renderer.render("home.html", ctx))
 }
@@ -205,6 +207,7 @@ pub(super) async fn entity_list(
         can_create,
         can_edit,
         can_delete,
+        show_auth_nav: state.show_auth_nav,
     };
 
     let template = if is_htmx { "list_table.html" } else { "list.html" };
@@ -244,6 +247,7 @@ pub(super) async fn entity_create_form(
         flash_success: None,
         flash_error: None,
         can_save: true,
+        show_auth_nav: state.show_auth_nav,
     };
     Html(state.renderer.render("form.html", ctx)).into_response()
 }
@@ -418,6 +422,7 @@ pub(super) async fn entity_create_submit(
                 flash_success: None,
                 flash_error: None,
                 can_save: true,
+                show_auth_nav: state.show_auth_nav,
             };
             Html(state.renderer.render("form.html", ctx)).into_response()
         }
@@ -485,6 +490,7 @@ pub(super) async fn entity_edit_form(
         flash_success: None,
         flash_error: None,
         can_save,
+        show_auth_nav: state.show_auth_nav,
     };
     Html(state.renderer.render("form.html", ctx)).into_response()
 }
@@ -584,6 +590,7 @@ pub(super) async fn entity_edit_submit(
                 flash_success: None,
                 flash_error: None,
                 can_save: true,
+                show_auth_nav: state.show_auth_nav,
             };
             Html(state.renderer.render("form.html", ctx)).into_response()
         }

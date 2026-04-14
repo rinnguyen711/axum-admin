@@ -33,6 +33,7 @@ struct UserListContext {
     users: Vec<UserRow>,
     flash_success: Option<String>,
     flash_error: Option<String>,
+    show_auth_nav: bool,
 }
 
 #[derive(Serialize)]
@@ -45,6 +46,7 @@ struct UserFormContext {
     error: Option<String>,
     flash_success: Option<String>,
     flash_error: Option<String>,
+    show_auth_nav: bool,
 }
 
 #[derive(Deserialize)]
@@ -89,6 +91,7 @@ pub(super) async fn user_list(
             users: rows,
             flash_success: None,
             flash_error: None,
+            show_auth_nav: state.show_auth_nav,
         };
         return Html(state.renderer.render("users_list.html", ctx)).into_response();
     }
@@ -121,6 +124,7 @@ pub(super) async fn user_create_form(
             error: None,
             flash_success: None,
             flash_error: None,
+            show_auth_nav: state.show_auth_nav,
         };
         return Html(state.renderer.render("user_form.html", ctx)).into_response();
     }
@@ -156,6 +160,7 @@ pub(super) async fn user_create_submit(
                     error: Some(e.to_string()),
                     flash_success: None,
                     flash_error: None,
+                    show_auth_nav: state.show_auth_nav,
                 };
                 return Html(state.renderer.render("user_form.html", ctx)).into_response();
             }

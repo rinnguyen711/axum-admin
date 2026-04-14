@@ -25,6 +25,7 @@ pub struct AdminAppState {
     pub enforcer: Option<()>,
     #[cfg(feature = "seaorm")]
     pub seaorm_auth: Option<std::sync::Arc<crate::adapters::seaorm_auth::SeaOrmAdminAuth>>,
+    pub show_auth_nav: bool,
 }
 
 pub struct AdminApp {
@@ -152,6 +153,12 @@ impl AdminApp {
         all_templates.extend(self.templates);
 
         let upload_limit = self.upload_limit;
+        let show_auth_nav = {
+            #[cfg(feature = "seaorm")]
+            { self.seaorm_auth.is_some() }
+            #[cfg(not(feature = "seaorm"))]
+            { false }
+        };
         let state = Arc::new(AdminAppState {
             title: self.title,
             icon: self.icon,
@@ -160,6 +167,7 @@ impl AdminApp {
             enforcer: self.enforcer,
             #[cfg(feature = "seaorm")]
             seaorm_auth: self.seaorm_auth,
+            show_auth_nav,
         });
         (auth, state, upload_limit)
     }

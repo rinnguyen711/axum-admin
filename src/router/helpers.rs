@@ -421,6 +421,7 @@ pub(super) async fn render_form_error(
         flash_success: None,
         flash_error: None,
         can_save,
+        show_auth_nav: state.show_auth_nav,
     };
     Html(state.renderer.render("form.html", ctx))
 }
