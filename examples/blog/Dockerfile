@@ -2,7 +2,7 @@
 # docker build -f examples/blog/Dockerfile -t blog .
 
 # Build stage
-FROM rust:1.85-slim AS builder
+FROM rust:1.88-slim AS builder
 
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
