@@ -4,6 +4,7 @@
     <table class="w-full text-left border-collapse">
       <thead>
         <tr class="border-b border-zinc-200 bg-zinc-50/50">
+          {% if can_delete or can_edit %}
           <th class="py-3 px-4 w-10">
             <input type="checkbox"
                    class="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black"
@@ -13,6 +14,7 @@
                      ? selected = [...new Set([...selected, ...allIds])]
                      : selected = selected.filter(id => !allIds.includes(id))" />
           </th>
+          {% endif %}
           {% for col in columns %}
           <th class="py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
             <a class="hover:text-zinc-900 transition-colors flex items-center gap-1 cursor-pointer"
@@ -27,21 +29,23 @@
             </a>
           </th>
           {% endfor %}
-          <th class="py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-zinc-500 text-right">Actions</th>
+          {% if can_edit or can_delete %}<th class="py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-zinc-500 text-right">Actions</th>{% endif %}
         </tr>
       </thead>
       <tbody class="divide-y divide-zinc-100">
         {% for row in rows %}
         <tr class="hover:bg-zinc-50/60 transition-colors group">
+          {% if can_delete or can_edit %}
           <td class="py-3 px-4">
             <input type="checkbox" name="selected_ids" value="{{ row.id }}"
                    class="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black"
                    x-model="selected" />
           </td>
+          {% endif %}
           {% for col in columns %}
           <td class="py-3 px-4 text-sm text-zinc-700">
             {% if column_types[col] == "Image" %}
-              {% if row.data[col] %}<img src="{{ row.data[col] }}" class="h-10 w-auto rounded object-cover" alt="">{% endif %}
+              {% if row.data[col] %}<img src="{{ row.data[col] }}" class="h-10 w-auto rounded object-cover" alt="{{ row.data[col] | basename }}">{% endif %}
             {% elif column_types[col] == "File" %}
               {{ row.data[col] | basename }}
             {% else %}
@@ -49,12 +53,16 @@
             {% endif %}
           </td>
           {% endfor %}
+          {% if can_edit or can_delete %}
           <td class="py-3 px-4 text-right">
             <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              {% if can_edit %}
               <a href="/admin/{{ entity_name }}/{{ row.id }}/"
                  class="p-1.5 text-zinc-400 hover:text-zinc-900 transition-colors rounded">
                 <i class="fa-solid fa-pen text-xs"></i>
               </a>
+              {% endif %}
+              {% if can_delete %}
               <button
                 hx-delete="/admin/{{ entity_name }}/{{ row.id }}/delete"
                 hx-confirm="Delete this record?"
@@ -63,8 +71,10 @@
                 class="p-1.5 text-zinc-400 hover:text-red-600 transition-colors rounded">
                 <i class="fa-solid fa-trash text-xs"></i>
               </button>
+              {% endif %}
             </div>
           </td>
+          {% endif %}
         </tr>
         {% endfor %}
         {% if rows | length == 0 %}

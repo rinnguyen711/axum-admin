@@ -1,26 +1,47 @@
 {% extends "layout.html" %}
 {% block title %}{{ entity_label }} — {{ admin_title }}{% endblock %}
 {% block content %}
-<div x-data="{ selected: [], filtersOpen: {{ active_filters | length > 0 | lower }} }">
+<div x-data="{ selected: [], allIds: [], filtersOpen: {{ active_filters | length > 0 | lower }}, exportOpen: false }"
+     x-init="
+       const el = document.querySelector('[data-page-ids]');
+       if (el) allIds = JSON.parse(el.dataset.pageIds);
+     ">
 
   <!-- Page header -->
   <div class="flex items-center justify-between mb-4">
-    <!-- Left: search -->
-    <div class="relative">
-      <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
-      <input name="search" type="search" placeholder="Search..."
-             value="{{ search }}"
-             class="pl-8 pr-4 py-2 bg-zinc-100 border-none rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-black w-56"
-             hx-trigger="keyup changed delay:400ms, search"
-             hx-get="/admin/{{ entity_name }}/"
-             hx-target="#list-table"
-             hx-include="[data-filter-input]" />
-    </div>
-
-    <!-- Right: filters, actions, add -->
+    <!-- Left: search + bulk actions -->
     <div class="flex items-center gap-3">
-      {% if actions %}
-      <div x-show="selected.length > 0" class="flex items-center gap-2">
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
+        <input name="search" type="search" placeholder="Search..."
+               value="{{ search }}"
+               class="pl-8 pr-4 py-2 bg-zinc-100 border-none rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-black w-56"
+               hx-trigger="keyup changed delay:400ms, search"
+               hx-get="/admin/{{ entity_name }}/"
+               hx-target="#list-table"
+               hx-include="[data-filter-input]" />
+      </div>
+
+      <div x-show="selected.length > 0" x-cloak class="flex items-center gap-2">
+        <span class="text-xs text-zinc-500 font-medium" x-text="selected.length + ' selected'"></span>
+        {% if bulk_delete and can_delete %}
+        <button
+          hx-post="/admin/{{ entity_name }}/action/__bulk_delete__"
+          hx-include="[name='selected_ids']"
+          hx-target="#flash"
+          hx-confirm="Delete selected records?"
+          class="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-md text-xs font-medium hover:bg-red-100 transition-colors">
+          <i class="fa-solid fa-trash text-[10px]"></i>
+          Delete selected
+        </button>
+        {% endif %}
+        {% if bulk_export %}
+        <button @click="exportOpen = true"
+          class="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 text-zinc-900 rounded-md text-xs font-medium hover:bg-zinc-200 transition-colors">
+          <i class="fa-solid fa-download text-[10px]"></i>
+          Export
+        </button>
+        {% endif %}
         {% for action in actions %}
         {% if action.target == "list" %}
         <button
@@ -28,14 +49,17 @@
           hx-include="[name='selected_ids']"
           hx-target="#flash"
           {% if action.confirm %}hx-confirm="{{ action.confirm }}"{% endif %}
-          class="flex items-center gap-2 px-4 py-2 bg-zinc-100 text-zinc-900 rounded-md text-sm font-medium hover:bg-zinc-200 transition-colors">
+          class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors {{ action.class | default('bg-zinc-100 text-zinc-900 hover:bg-zinc-200') }}">
+          {% if action.icon %}<i class="{{ action.icon }} text-[10px]"></i>{% endif %}
           {{ action.label }}
         </button>
         {% endif %}
         {% endfor %}
       </div>
-      {% endif %}
+    </div>
 
+    <!-- Right: filters, add -->
+    <div class="flex items-center gap-3">
       {% if filter_fields %}
       <button @click="filtersOpen = !filtersOpen"
               class="flex items-center gap-2 px-4 py-2 bg-zinc-100 text-zinc-900 rounded-md text-sm font-medium hover:bg-zinc-200 transition-colors"
@@ -49,11 +73,13 @@
       </button>
       {% endif %}
 
+      {% if can_create %}
       <a href="/admin/{{ entity_name }}/new"
          class="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-md text-sm font-semibold hover:bg-zinc-800 transition-colors">
         <i class="fa-solid fa-plus text-xs"></i>
         Add {{ entity_label }}
       </a>
+      {% endif %}
     </div>
   </div>
 
@@ -96,7 +122,7 @@
       <input type="text"
              name="filter[{{ field.name }}]"
              data-filter-input
-             value="{{ active_filters[field.name] | default(value='') }}"
+             value="{{ active_filters[field.name] | default('') }}"
              placeholder="Filter {{ field.label | lower }}..."
              hx-get="/admin/{{ entity_name }}/"
              hx-target="#list-table"
@@ -115,8 +141,57 @@
 
   <div id="flash"></div>
 
-  <div id="list-table">
+  <div id="list-table"
+       @htmx:after-swap="
+         const el = $el.querySelector('[data-page-ids]');
+         if (el) {
+           allIds = JSON.parse(el.dataset.pageIds);
+           selected = [];
+         }
+       ">
     {% include "list_table.html" %}
   </div>
+
+  <!-- Export modal -->
+  {% if bulk_export %}
+  <div x-show="exportOpen" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center"
+       @keydown.escape.window="exportOpen = false">
+    <div class="absolute inset-0 bg-black/40" @click="exportOpen = false"></div>
+    <div class="relative bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6">
+      <h2 class="text-base font-semibold text-zinc-900 mb-1">Export CSV</h2>
+      <p class="text-xs text-zinc-500 mb-4">Select the fields to include in the export.</p>
+
+      <form method="post" action="/admin/{{ entity_name }}/action/__bulk_export__">
+        <!-- carry selected row ids -->
+        <template x-for="id in selected" :key="id">
+          <input type="hidden" name="selected_ids" :value="id" />
+        </template>
+
+        <div class="space-y-2 mb-5 max-h-60 overflow-y-auto pl-2">
+          {% for name, label in export_columns %}
+          <label class="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+            <input type="checkbox" name="export_fields" value="{{ name }}" checked
+                   class="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black" />
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+
+        <div class="flex items-center justify-end gap-2">
+          <button type="button" @click="exportOpen = false"
+                  class="px-4 py-2 text-sm text-zinc-600 hover:text-zinc-900 transition-colors">
+            Cancel
+          </button>
+          <button type="submit" @click="exportOpen = false"
+                  class="px-4 py-2 bg-black text-white rounded-md text-sm font-semibold hover:bg-zinc-800 transition-colors">
+            <i class="fa-solid fa-download text-xs mr-1"></i>
+            Download
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
