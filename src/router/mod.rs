@@ -39,7 +39,21 @@ async fn serve_admin_css() -> impl IntoResponse {
 }
 
 impl AdminApp {
-    pub fn into_router(self) -> Router {
+    pub async fn into_router(self) -> Router {
+        let entity_names: Vec<String> = self
+            .entities
+            .iter()
+            .map(|e| e.entity_name.clone())
+            .collect();
+
+        #[cfg(feature = "seaorm")]
+        if let Some(ref seaorm_auth) = self.seaorm_auth {
+            seaorm_auth
+                .seed_roles(&entity_names)
+                .await
+                .expect("failed to seed RBAC roles");
+        }
+
         let (auth, state, upload_limit) = self.into_state();
 
         let protected = Router::new()

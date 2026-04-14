@@ -31,7 +31,7 @@ impl DataAdapter for StubAdapter {
     async fn count(&self, _p: &ListParams) -> Result<u64, AdminError> { Ok(1) }
 }
 
-fn make_app() -> axum::Router {
+async fn make_app() -> axum::Router {
     AdminApp::new()
         .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
         .register(
@@ -43,19 +43,20 @@ fn make_app() -> axum::Router {
                 .adapter(Box::new(StubAdapter)),
         )
         .into_router()
+        .await
 }
 
-fn make_server() -> TestServer {
+async fn make_server() -> TestServer {
     let config = TestServerConfig {
         save_cookies: true,
         ..TestServerConfig::default()
     };
-    TestServer::new_with_config(make_app(), config).unwrap()
+    TestServer::new_with_config(make_app().await, config).unwrap()
 }
 
 #[tokio::test]
 async fn list_page_renders_entity_rows() {
-    let server = make_server();
+    let server = make_server().await;
 
     // Log in first
     let login = server
@@ -74,7 +75,7 @@ async fn list_page_renders_entity_rows() {
 
 #[tokio::test]
 async fn create_form_renders() {
-    let server = make_server();
+    let server = make_server().await;
     server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
     let resp = server.get("/admin/users/new").await;
@@ -85,7 +86,7 @@ async fn create_form_renders() {
 
 #[tokio::test]
 async fn edit_form_renders() {
-    let server = make_server();
+    let server = make_server().await;
     server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
     let resp = server.get("/admin/users/1/").await;
@@ -96,7 +97,7 @@ async fn edit_form_renders() {
 
 #[tokio::test]
 async fn delete_redirects() {
-    let server = make_server();
+    let server = make_server().await;
     server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
     let resp = server.delete("/admin/users/1/delete").await;
@@ -122,7 +123,7 @@ impl DataAdapter for FkStubAdapter {
     async fn count(&self, _p: &ListParams) -> Result<u64, AdminError> { Ok(1) }
 }
 
-fn make_fk_app() -> axum::Router {
+async fn make_fk_app() -> axum::Router {
     AdminApp::new()
         .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
         .register(
@@ -140,12 +141,13 @@ fn make_fk_app() -> axum::Router {
                 .adapter(Box::new(FkStubAdapter)),
         )
         .into_router()
+        .await
 }
 
 #[tokio::test]
 async fn fk_field_renders_select_with_options() {
     let config = TestServerConfig { save_cookies: true, ..TestServerConfig::default() };
-    let server = TestServer::new_with_config(make_fk_app(), config).unwrap();
+    let server = TestServer::new_with_config(make_fk_app().await, config).unwrap();
     server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
     let resp = server.get("/admin/posts/1/").await;
@@ -196,7 +198,8 @@ async fn file_upload_create_stores_file() {
                 .field(Field::image("avatar", storage))
                 .adapter(Box::new(FileStubAdapter)),
         )
-        .into_router();
+        .into_router()
+        .await;
 
     let config = axum_test::TestServerConfig { save_cookies: true, ..Default::default() };
     let server = axum_test::TestServer::new_with_config(app, config).unwrap();

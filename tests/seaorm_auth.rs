@@ -194,7 +194,8 @@ mod tests {
 
         let app = axum_admin::AdminApp::new()
             .seaorm_auth(auth)
-            .into_router();
+            .into_router()
+            .await;
 
         let server = TestServer::new(app).unwrap();
         // Unauthenticated request should redirect to login (302)
@@ -214,7 +215,8 @@ mod tests {
 
         let app = axum_admin::AdminApp::new()
             .seaorm_auth(auth)
-            .into_router();
+            .into_router()
+            .await;
 
         let config = TestServerConfig {
             save_cookies: true,

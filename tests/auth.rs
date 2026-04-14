@@ -57,7 +57,8 @@ fn admin_app_with_auth() {
 async fn login_page_returns_200() {
     let app = AdminApp::new()
         .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
-        .into_router();
+        .into_router()
+        .await;
 
     let server = TestServer::new(app).unwrap();
     let resp = server.get("/admin/login").await;
@@ -68,7 +69,8 @@ async fn login_page_returns_200() {
 async fn admin_root_redirects_to_login_when_unauthenticated() {
     let app = AdminApp::new()
         .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
-        .into_router();
+        .into_router()
+        .await;
 
     let server = TestServer::new(app).unwrap();
     let resp = server.get("/admin/").await;
@@ -80,7 +82,8 @@ async fn admin_root_redirects_to_login_when_unauthenticated() {
 async fn login_post_correct_credentials_redirects_to_admin() {
     let app = AdminApp::new()
         .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
-        .into_router();
+        .into_router()
+        .await;
 
     let server = TestServer::new(app).unwrap();
     let resp = server
@@ -95,7 +98,8 @@ async fn login_post_correct_credentials_redirects_to_admin() {
 async fn login_post_wrong_credentials_returns_login_page() {
     let app = AdminApp::new()
         .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
-        .into_router();
+        .into_router()
+        .await;
 
     let server = TestServer::new(app).unwrap();
     let resp = server

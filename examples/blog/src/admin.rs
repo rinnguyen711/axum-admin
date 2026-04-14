@@ -1,21 +1,27 @@
 use axum::Router;
-use axum_admin::{adapters::seaorm::{SeaOrmAdapter, SeaOrmManyToManyAdapter}, AdminApp, DefaultAdminAuth, EntityAdmin, EntityGroupAdmin, Field};
+use axum_admin::{
+    adapters::seaorm::{SeaOrmAdapter, SeaOrmManyToManyAdapter},
+    adapters::seaorm_auth::SeaOrmAdminAuth,
+    AdminApp, EntityAdmin, EntityGroupAdmin, Field,
+};
 use sea_orm::DatabaseConnection;
 
 use crate::{category, post};
 
-pub fn build(db: DatabaseConnection) -> Router {
+pub async fn build(db: DatabaseConnection) -> Router {
+    let auth = SeaOrmAdminAuth::new(db.clone())
+        .await
+        .expect("failed to initialize auth");
+    auth.ensure_user("admin", "admin")
+        .await
+        .expect("failed to ensure admin user");
+
     AdminApp::new()
         .title("Blog Admin")
         .icon("fa-solid fa-newspaper")
         .prefix("/admin")
-        // Load custom templates from this directory — any .html file here
-        // overrides the built-in with the same name.
-        // e.g. templates/home.html replaces the default dashboard.
         .template_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/templates"))
-        .auth(Box::new(
-            DefaultAdminAuth::new().add_user("admin", "admin"),
-        ))
+        .seaorm_auth(auth)
         .register(
             EntityGroupAdmin::new("Blog")
                 .register(
@@ -34,39 +40,36 @@ pub fn build(db: DatabaseConnection) -> Router {
                             Field::text("title")
                                 .required()
                                 .min_length(3)
-                                .max_length(255)
+                                .max_length(255),
                         )
-                        .field(
-                            Field::textarea("body")
-                                .max_length(10000)
-                        )
-                        .field(
-                            Field::foreign_key(
-                                "category_id",
-                                "Category",
-                                Box::new(SeaOrmAdapter::<category::Entity>::new(db.clone())),
-                                "id",
-                                "name",
-                            )
-                        )
+                        .field(Field::textarea("body").max_length(10000))
+                        .field(Field::foreign_key(
+                            "category_id",
+                            "Category",
+                            Box::new(SeaOrmAdapter::<category::Entity>::new(db.clone())),
+                            "id",
+                            "name",
+                        ))
                         .field(
                             Field::many_to_many(
                                 "tags",
                                 Box::new(SeaOrmManyToManyAdapter::new(
                                     db.clone(),
-                                    "post_tags", // junction table
-                                    "post_id",   // FK to posts
-                                    "tag_id",    // FK to tags
-                                    "tags",      // options table
-                                    "id",        // value column
-                                    "name",      // label column
+                                    "post_tags",
+                                    "post_id",
+                                    "tag_id",
+                                    "tags",
+                                    "id",
+                                    "name",
                                 )),
-                            ).label("Tags"),
+                            )
+                            .label("Tags"),
                         )
                         .search_fields(vec!["title".to_string(), "body".to_string()])
                         .filter_fields(vec!["status".to_string(), "category_id".to_string()])
                         .adapter(Box::new(SeaOrmAdapter::<post::Entity>::new(db.clone()))),
-                )
+                ),
         )
         .into_router()
+        .await
 }

@@ -20,7 +20,7 @@ impl DataAdapter for StubAdapter {
     async fn count(&self, _p: &ListParams) -> Result<u64, AdminError> { Ok(0) }
 }
 
-fn make_app_with_action() -> axum::Router {
+async fn make_app_with_action() -> axum::Router {
     AdminApp::new()
         .auth(Box::new(DefaultAdminAuth::new().add_user("admin", "secret")))
         .register(
@@ -48,19 +48,20 @@ fn make_app_with_action() -> axum::Router {
                 ),
         )
         .into_router()
+        .await
 }
 
-fn make_server() -> TestServer {
+async fn make_server() -> TestServer {
     let config = TestServerConfig {
         save_cookies: true,
         ..TestServerConfig::default()
     };
-    TestServer::new_with_config(make_app_with_action(), config).unwrap()
+    TestServer::new_with_config(make_app_with_action().await, config).unwrap()
 }
 
 #[tokio::test]
 async fn list_action_returns_flash_success() {
-    let server = make_server();
+    let server = make_server().await;
     server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
     let resp = server
@@ -75,7 +76,7 @@ async fn list_action_returns_flash_success() {
 
 #[tokio::test]
 async fn list_action_returns_flash_error() {
-    let server = make_server();
+    let server = make_server().await;
     server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
     let resp = server
@@ -90,7 +91,7 @@ async fn list_action_returns_flash_error() {
 
 #[tokio::test]
 async fn detail_action_returns_redirect() {
-    let server = make_server();
+    let server = make_server().await;
     server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
     let resp = server
@@ -104,7 +105,7 @@ async fn detail_action_returns_redirect() {
 
 #[tokio::test]
 async fn unknown_action_returns_404() {
-    let server = make_server();
+    let server = make_server().await;
     server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
     let resp = server
