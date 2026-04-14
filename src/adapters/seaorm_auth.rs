@@ -23,9 +23,11 @@ pub type AuthUserEntity = Entity;
 pub type AuthUserModel = Model;
 pub type AuthUserActiveModel = ActiveModel;
 
+use crate::adapters::migrations::Migrator;
 use crate::auth::{AdminAuth, AdminUser};
 use crate::error::AdminError;
 use async_trait::async_trait;
+use sea_orm_migration::MigratorTrait;
 use casbin::{CoreApi, DefaultModel, Enforcer};
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use sea_orm_adapter::SeaOrmAdapter;
@@ -43,6 +45,11 @@ pub struct SeaOrmAdminAuth {
 
 impl SeaOrmAdminAuth {
     pub async fn new(db: DatabaseConnection) -> Result<Self, AdminError> {
+        // Run auth schema migrations on every startup (idempotent via IF NOT EXISTS)
+        Migrator::up(&db, None)
+            .await
+            .map_err(|e| AdminError::Internal(e.to_string()))?;
+
         let model_text = "[request_definition]\nr = sub, obj, act\n\n[policy_definition]\np = sub, obj, act\n\n[role_definition]\ng = _, _\n\n[policy_effect]\ne = some(where (p.eft == allow))\n\n[matchers]\nm = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act\n";
         let model = DefaultModel::from_str(model_text)
             .await
