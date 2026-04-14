@@ -69,6 +69,9 @@ pub(super) async fn user_list(
 ) -> Response {
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
         use crate::adapters::seaorm_auth::AuthUserEntity;
         use sea_orm::EntityTrait;
 
@@ -121,6 +124,9 @@ pub(super) async fn user_create_form(
 ) -> Response {
     #[cfg(feature = "seaorm")]
     if state.seaorm_auth.is_some() {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
         let csrf_token = get_or_create_csrf(&cookies);
         let ctx = UserFormContext {
             admin_title: state.title.clone(),
@@ -148,16 +154,22 @@ pub(super) async fn user_create_form(
 pub(super) async fn user_create_submit(
     cookies: Cookies,
     Extension(state): Extension<Arc<AdminAppState>>,
-    Extension(_user): Extension<AdminUser>,
+    Extension(user): Extension<AdminUser>,
     Form(form): Form<CreateUserForm>,
 ) -> Response {
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
         let is_superuser = form.is_superuser.as_deref() == Some("on");
         match seaorm.create_user(&form.username, &form.password, is_superuser).await {
             Ok(_) => {
                 if !is_superuser {
-                    let role = form.role.as_deref().unwrap_or("viewer");
+                    let role = match form.role.as_deref() {
+                        Some("admin") => "admin",
+                        _ => "viewer",
+                    };
                     let _ = seaorm.assign_role(&form.username, role).await;
                 }
                 return (StatusCode::FOUND, [(LOCATION, "/admin/users/")]).into_response();
@@ -197,6 +209,9 @@ pub(super) async fn user_delete(
 ) -> Response {
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
         use crate::adapters::seaorm_auth::AuthUserEntity;
         use sea_orm::EntityTrait;
         let _ = AuthUserEntity::delete_by_id(id).exec(seaorm.db()).await;
