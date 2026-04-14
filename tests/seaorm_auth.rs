@@ -72,7 +72,7 @@ mod tests {
         let user = auth.authenticate("admin", "secret").await.unwrap();
         assert!(user.is_superuser);
         // superuser passes any check with no enforcer
-        assert!(check_permission(&user, &Some("posts.delete".into()), None));
+        assert!(check_permission(&user, &Some("posts.delete".into()), None).await);
     }
 
     #[tokio::test]
@@ -95,8 +95,8 @@ mod tests {
 
         let user = AdminUser { username: "alice".into(), session_id: "s".into(), is_superuser: false };
         let enforcer = auth.enforcer();
-        assert!(check_permission(&user, &Some("posts.view".into()), Some(&enforcer)));
-        assert!(!check_permission(&user, &Some("posts.delete".into()), Some(&enforcer)));
+        assert!(check_permission(&user, &Some("posts.view".into()), Some(&enforcer)).await);
+        assert!(!check_permission(&user, &Some("posts.delete".into()), Some(&enforcer)).await);
     }
 
     #[tokio::test]
