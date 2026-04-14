@@ -80,7 +80,64 @@ impl SeaOrmAdminAuth {
         if count > 0 {
             return Ok(());
         }
-        self.create_user(username, password, true).await
+        self.create_user(username, password, true).await?;
+        self.assign_role(username, "admin").await
+    }
+
+    /// Seed default Casbin policies for the two predefined roles.
+    /// Idempotent — skips rules that already exist.
+    /// Call this after all entities are registered (i.e. from AdminApp::into_router).
+    pub async fn seed_roles(&self, entity_names: &[String]) -> Result<(), AdminError> {
+        use casbin::MgmtApi;
+        let actions = ["view", "create", "edit", "delete"];
+        let mut enforcer = self.enforcer.write().unwrap();
+        for entity in entity_names {
+            for action in &actions {
+                let rule = vec!["admin".to_string(), entity.clone(), ToString::to_string(action)];
+                if !enforcer.has_policy(rule.clone()) {
+                    enforcer
+                        .add_policy(rule)
+                        .await
+                        .map_err(|e| AdminError::Internal(e.to_string()))?;
+                }
+            }
+            let viewer_rule = vec!["viewer".to_string(), entity.clone(), "view".to_string()];
+            if !enforcer.has_policy(viewer_rule.clone()) {
+                enforcer
+                    .add_policy(viewer_rule)
+                    .await
+                    .map_err(|e| AdminError::Internal(e.to_string()))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Assign a role ("admin" or "viewer") to a user.
+    /// Removes any previously assigned role first (a user has exactly one role).
+    pub async fn assign_role(&self, username: &str, role: &str) -> Result<(), AdminError> {
+        use casbin::MgmtApi;
+        use casbin::RbacApi;
+        let mut enforcer = self.enforcer.write().unwrap();
+        // Remove existing role assignments for this user
+        let current_roles = enforcer.get_roles_for_user(username, None);
+        for r in current_roles {
+            enforcer
+                .delete_role_for_user(username, &r, None)
+                .await
+                .map_err(|e| AdminError::Internal(e.to_string()))?;
+        }
+        enforcer
+            .add_role_for_user(username, role, None)
+            .await
+            .map_err(|e| AdminError::Internal(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Get the assigned role for a user ("admin" or "viewer"), or None if superuser/unassigned.
+    pub fn get_user_role(&self, username: &str) -> Option<String> {
+        use casbin::RbacApi;
+        let enforcer = self.enforcer.read().unwrap();
+        enforcer.get_roles_for_user(username, None).into_iter().next()
     }
 
     /// Create a new user with a hashed password.
