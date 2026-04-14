@@ -10,4 +10,5 @@ name = "blog"
 axum-admin = { path = "../..", features = ["seaorm"] }
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
-sea-orm = { version = "1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sea-orm = { version = "1", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"] }
+sea-orm-migration = { version = "1" }

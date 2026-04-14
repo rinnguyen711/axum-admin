@@ -23,11 +23,12 @@ regex = "1"
 [dev-dependencies]
 axum-test = "14"
 sea-orm = { version = "1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sea-orm-migration = { version = "1" }
 tempfile = "3"
 chrono = { version = "0.4", features = ["serde"] }
 
 [features]
-seaorm = ["dep:sea-orm", "dep:casbin", "dep:sea-orm-adapter", "dep:argon2", "dep:chrono", "dep:rand_core"]
+seaorm = ["dep:sea-orm", "dep:casbin", "dep:sea-orm-adapter", "dep:argon2", "dep:chrono", "dep:rand_core", "dep:sea-orm-migration"]
 
 [dependencies.sea-orm]
 version = "1"
@@ -53,4 +54,8 @@ optional = true
 
 [dependencies.rand_core]
 version = "0.6"
+optional = true
+
+[dependencies.sea-orm-migration]
+version = "1"
 optional = true
