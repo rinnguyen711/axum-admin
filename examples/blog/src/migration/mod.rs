@@ -13,4 +13,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240002_seed_blog_data::Migration),
         ]
     }
+
+    fn migration_table_name() -> sea_orm::DynIden {
+        sea_orm_migration::prelude::Alias::new("blog_migrations").into_iden()
+    }
 }
