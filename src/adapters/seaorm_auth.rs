@@ -88,13 +88,17 @@ impl SeaOrmAdminAuth {
     /// Seed default Casbin policies for the two predefined roles.
     /// Idempotent — skips rules that already exist.
     /// Call this after all entities are registered (i.e. from AdminApp::into_router).
+    ///
+    /// Internally roles are stored with a `role:` prefix to avoid collisions with
+    /// usernames that share the same string (e.g. a user named "admin" and the role
+    /// "admin").
     pub async fn seed_roles(&self, entity_names: &[String]) -> Result<(), AdminError> {
         use casbin::MgmtApi;
         let actions = ["view", "create", "edit", "delete"];
         let mut enforcer = self.enforcer.write().await;
         for entity in entity_names {
             for action in &actions {
-                let rule = vec!["admin".to_string(), entity.clone(), ToString::to_string(action)];
+                let rule = vec!["role:admin".to_string(), entity.clone(), ToString::to_string(action)];
                 if !enforcer.has_policy(rule.clone()) {
                     enforcer
                         .add_policy(rule)
@@ -102,7 +106,7 @@ impl SeaOrmAdminAuth {
                         .map_err(|e| AdminError::Internal(e.to_string()))?;
                 }
             }
-            let viewer_rule = vec!["viewer".to_string(), entity.clone(), "view".to_string()];
+            let viewer_rule = vec!["role:viewer".to_string(), entity.clone(), "view".to_string()];
             if !enforcer.has_policy(viewer_rule.clone()) {
                 enforcer
                     .add_policy(viewer_rule)
@@ -115,8 +119,11 @@ impl SeaOrmAdminAuth {
 
     /// Assign a role ("admin" or "viewer") to a user.
     /// Removes any previously assigned role first (a user has exactly one role).
+    /// The role is stored internally with a `role:` prefix so that a user named "admin"
+    /// and the "admin" role do not alias each other in Casbin's policy store.
     pub async fn assign_role(&self, username: &str, role: &str) -> Result<(), AdminError> {
         use casbin::RbacApi;
+        let prefixed_role = format!("role:{role}");
         let mut enforcer = self.enforcer.write().await;
         // Remove existing role assignments for this user
         let current_roles = enforcer.get_roles_for_user(username, None);
@@ -127,17 +134,22 @@ impl SeaOrmAdminAuth {
                 .map_err(|e| AdminError::Internal(e.to_string()))?;
         }
         enforcer
-            .add_role_for_user(username, role, None)
+            .add_role_for_user(username, &prefixed_role, None)
             .await
             .map_err(|e| AdminError::Internal(e.to_string()))?;
         Ok(())
     }
 
     /// Get the assigned role for a user ("admin" or "viewer"), or None if superuser/unassigned.
+    /// Strips the internal `role:` prefix before returning.
     pub fn get_user_role(&self, username: &str) -> Option<String> {
         use casbin::RbacApi;
-        let enforcer = self.enforcer.blocking_read();
-        enforcer.get_roles_for_user(username, None).into_iter().next()
+        let enforcer = self.enforcer.try_read().ok()?;
+        enforcer
+            .get_roles_for_user(username, None)
+            .into_iter()
+            .next()
+            .map(|r| r.strip_prefix("role:").unwrap_or(&r).to_string())
     }
 
     /// Create a new user with a hashed password.

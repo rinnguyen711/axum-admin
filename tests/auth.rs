@@ -157,4 +157,46 @@ mod seaorm_auth_tests {
         // SeaOrmAdminAuth::new() should succeed, which means migrations ran
         SeaOrmAdminAuth::new(db).await.expect("SeaOrmAdminAuth::new failed");
     }
+
+    #[tokio::test]
+    async fn seed_roles_is_idempotent() {
+        use axum_admin::SeaOrmAdminAuth;
+        let db = in_memory_db().await;
+        let auth = SeaOrmAdminAuth::new(db).await.expect("new failed");
+        let entities = vec!["posts".to_string(), "categories".to_string()];
+
+        // First seed
+        auth.seed_roles(&entities).await.expect("first seed failed");
+        // Second seed — must not error (idempotent)
+        auth.seed_roles(&entities).await.expect("second seed failed");
+    }
+
+    #[tokio::test]
+    async fn assign_and_get_role() {
+        use axum_admin::SeaOrmAdminAuth;
+        let db = in_memory_db().await;
+        let auth = SeaOrmAdminAuth::new(db).await.expect("new failed");
+        let entities = vec!["posts".to_string()];
+        auth.seed_roles(&entities).await.expect("seed failed");
+
+        auth.create_user("alice", "pass", false).await.expect("create failed");
+        auth.assign_role("alice", "admin").await.expect("assign failed");
+        assert_eq!(auth.get_user_role("alice"), Some("admin".to_string()));
+
+        // Reassign to viewer — should replace admin
+        auth.assign_role("alice", "viewer").await.expect("reassign failed");
+        assert_eq!(auth.get_user_role("alice"), Some("viewer".to_string()));
+    }
+
+    #[tokio::test]
+    async fn ensure_user_gets_admin_role() {
+        use axum_admin::SeaOrmAdminAuth;
+        let db = in_memory_db().await;
+        let auth = SeaOrmAdminAuth::new(db).await.expect("new failed");
+        let entities = vec!["posts".to_string()];
+        auth.seed_roles(&entities).await.expect("seed failed");
+
+        auth.ensure_user("admin", "admin").await.expect("ensure_user failed");
+        assert_eq!(auth.get_user_role("admin"), Some("admin".to_string()));
+    }
 }
