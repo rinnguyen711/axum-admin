@@ -35,12 +35,13 @@ use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
+use tokio::sync::RwLock as TokioRwLock;
 use uuid::Uuid;
 
 pub struct SeaOrmAdminAuth {
     pub(crate) db: DatabaseConnection,
     sessions: Arc<RwLock<HashMap<String, AdminUser>>>,
-    enforcer: Arc<RwLock<Enforcer>>,
+    enforcer: Arc<TokioRwLock<Enforcer>>,
 }
 
 impl SeaOrmAdminAuth {
@@ -66,7 +67,7 @@ impl SeaOrmAdminAuth {
         Ok(Self {
             db,
             sessions: Arc::new(RwLock::new(HashMap::new())),
-            enforcer: Arc::new(RwLock::new(enforcer)),
+            enforcer: Arc::new(TokioRwLock::new(enforcer)),
         })
     }
 
@@ -90,7 +91,7 @@ impl SeaOrmAdminAuth {
     pub async fn seed_roles(&self, entity_names: &[String]) -> Result<(), AdminError> {
         use casbin::MgmtApi;
         let actions = ["view", "create", "edit", "delete"];
-        let mut enforcer = self.enforcer.write().unwrap();
+        let mut enforcer = self.enforcer.write().await;
         for entity in entity_names {
             for action in &actions {
                 let rule = vec!["admin".to_string(), entity.clone(), ToString::to_string(action)];
@@ -117,7 +118,7 @@ impl SeaOrmAdminAuth {
     pub async fn assign_role(&self, username: &str, role: &str) -> Result<(), AdminError> {
         use casbin::MgmtApi;
         use casbin::RbacApi;
-        let mut enforcer = self.enforcer.write().unwrap();
+        let mut enforcer = self.enforcer.write().await;
         // Remove existing role assignments for this user
         let current_roles = enforcer.get_roles_for_user(username, None);
         for r in current_roles {
@@ -136,7 +137,7 @@ impl SeaOrmAdminAuth {
     /// Get the assigned role for a user ("admin" or "viewer"), or None if superuser/unassigned.
     pub fn get_user_role(&self, username: &str) -> Option<String> {
         use casbin::RbacApi;
-        let enforcer = self.enforcer.read().unwrap();
+        let enforcer = self.enforcer.blocking_read();
         enforcer.get_roles_for_user(username, None).into_iter().next()
     }
 
@@ -220,7 +221,7 @@ impl SeaOrmAdminAuth {
         &self.db
     }
 
-    pub fn enforcer(&self) -> Arc<RwLock<Enforcer>> {
+    pub fn enforcer(&self) -> Arc<TokioRwLock<Enforcer>> {
         Arc::clone(&self.enforcer)
     }
 }

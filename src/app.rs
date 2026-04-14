@@ -20,7 +20,7 @@ pub struct AdminAppState {
     pub entities: Vec<EntityAdmin>,
     pub renderer: AdminRenderer,
     #[cfg(feature = "seaorm")]
-    pub enforcer: Option<std::sync::Arc<std::sync::RwLock<casbin::Enforcer>>>,
+    pub enforcer: Option<std::sync::Arc<tokio::sync::RwLock<casbin::Enforcer>>>,
     #[cfg(not(feature = "seaorm"))]
     pub enforcer: Option<()>,
     #[cfg(feature = "seaorm")]
@@ -39,7 +39,7 @@ pub struct AdminApp {
     /// Maximum multipart body size in bytes. Defaults to 10 MiB.
     pub upload_limit: usize,
     #[cfg(feature = "seaorm")]
-    pub(crate) enforcer: Option<std::sync::Arc<std::sync::RwLock<casbin::Enforcer>>>,
+    pub(crate) enforcer: Option<std::sync::Arc<tokio::sync::RwLock<casbin::Enforcer>>>,
     #[cfg(not(feature = "seaorm"))]
     pub(crate) enforcer: Option<()>,
     #[cfg(feature = "seaorm")]

@@ -3,6 +3,7 @@ mod helpers;
 mod auth;
 mod entity;
 mod users;
+mod roles;
 
 use crate::{app::AdminApp, middleware::require_auth};
 use axum::{
@@ -68,6 +69,7 @@ impl AdminApp {
             .route("/admin/users/:id/", get(users::user_edit_form))
             .route("/admin/users/:id/", post(users::user_edit_submit))
             .route("/admin/users/:id/delete", delete(users::user_delete))
+            .route("/admin/roles/", get(roles::role_list))
             .route("/admin/:entity", get(|Path(e): Path<String>| async move {
                 Redirect::permanent(&format!("/admin/{}/", e))
             }))

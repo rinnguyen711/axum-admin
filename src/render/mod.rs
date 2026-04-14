@@ -29,6 +29,7 @@ impl AdminRenderer {
         env.add_template_owned("change_password.html", include_str!("../../templates/change_password.html").to_string()).unwrap();
         env.add_template_owned("users_list.html", include_str!("../../templates/users_list.html").to_string()).unwrap();
         env.add_template_owned("user_form.html", include_str!("../../templates/user_form.html").to_string()).unwrap();
+        env.add_template_owned("roles.html", include_str!("../../templates/roles.html").to_string()).unwrap();
 
         // Dev overrides — applied after defaults so they take precedence
         for (name, content) in overrides {

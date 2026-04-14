@@ -111,7 +111,7 @@ impl AdminAuth for DefaultAdminAuth {
 pub fn check_permission(
     user: &AdminUser,
     required: &Option<String>,
-    enforcer: Option<&std::sync::Arc<std::sync::RwLock<casbin::Enforcer>>>,
+    enforcer: Option<&std::sync::Arc<tokio::sync::RwLock<casbin::Enforcer>>>,
 ) -> bool {
     use casbin::CoreApi;
     let perm = match required {
@@ -133,8 +133,7 @@ pub fn check_permission(
         (perm.as_str(), "")
     };
     enforcer
-        .read()
-        .unwrap()
+        .blocking_read()
         .enforce((user.username.as_str(), obj, act))
         .unwrap_or(false)
 }

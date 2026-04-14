@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+{% block title %}Roles & Permissions – {{ admin_title }}{% endblock %}
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-xl font-semibold text-zinc-900">Roles & Permissions</h1>
+  <p class="text-sm text-zinc-500 mt-1">Predefined roles and their permissions on each entity.</p>
+</div>
+
+<div class="space-y-8">
+  {% for role in roles %}
+  <div class="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+    <div class="px-4 py-3 bg-zinc-50 border-b border-zinc-200">
+      <h2 class="text-sm font-semibold text-zinc-900">{{ role.role_label }}</h2>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="border-b border-zinc-100">
+        <tr>
+          <th class="text-left px-4 py-3 font-medium text-zinc-600 w-1/2">Entity</th>
+          <th class="text-center px-4 py-3 font-medium text-zinc-600">View</th>
+          <th class="text-center px-4 py-3 font-medium text-zinc-600">Create</th>
+          <th class="text-center px-4 py-3 font-medium text-zinc-600">Edit</th>
+          <th class="text-center px-4 py-3 font-medium text-zinc-600">Delete</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100">
+        {% for entity in role.entities %}
+        <tr class="hover:bg-zinc-50">
+          <td class="px-4 py-3 font-medium text-zinc-900">{{ entity.label }}</td>
+          <td class="px-4 py-3 text-center">
+            {% if entity.view %}<i class="fa-solid fa-check text-emerald-500 text-xs"></i>{% else %}<span class="text-zinc-300">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-center">
+            {% if entity.create %}<i class="fa-solid fa-check text-emerald-500 text-xs"></i>{% else %}<span class="text-zinc-300">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-center">
+            {% if entity.edit %}<i class="fa-solid fa-check text-emerald-500 text-xs"></i>{% else %}<span class="text-zinc-300">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-center">
+            {% if entity.delete %}<i class="fa-solid fa-check text-emerald-500 text-xs"></i>{% else %}<span class="text-zinc-300">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
