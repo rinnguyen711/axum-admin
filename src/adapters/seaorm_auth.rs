@@ -29,18 +29,14 @@ use crate::error::AdminError;
 use async_trait::async_trait;
 use sea_orm_migration::MigratorTrait;
 use casbin::{CoreApi, DefaultModel, Enforcer};
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, Statement};
 use sea_orm_adapter::SeaOrmAdapter;
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::sync::Arc;
 use tokio::sync::RwLock as TokioRwLock;
 use uuid::Uuid;
 
 pub struct SeaOrmAdminAuth {
     pub(crate) db: DatabaseConnection,
-    sessions: Arc<RwLock<HashMap<String, AdminUser>>>,
     enforcer: Arc<TokioRwLock<Enforcer>>,
 }
 
@@ -66,7 +62,6 @@ impl SeaOrmAdminAuth {
 
         Ok(Self {
             db,
-            sessions: Arc::new(RwLock::new(HashMap::new())),
             enforcer: Arc::new(TokioRwLock::new(enforcer)),
         })
     }
@@ -260,20 +255,87 @@ impl AdminAuth for SeaOrmAdminAuth {
             .map_err(|_| AdminError::Unauthorized)?;
 
         let session_id = Uuid::new_v4().to_string();
-        let admin_user = AdminUser {
-            username: user.username.clone(),
-            session_id: session_id.clone(),
+        let expires_at = chrono::Utc::now().naive_utc() + chrono::Duration::hours(24);
+
+        let backend = self.db.get_database_backend();
+        let sql = crate::adapters::seaorm::rebind(
+            "INSERT INTO auth_sessions (id, username, is_superuser, expires_at) VALUES (?, ?, ?, ?)",
+            backend,
+        );
+        let stmt = Statement::from_sql_and_values(
+            backend,
+            &sql,
+            [
+                sea_orm::Value::String(Some(Box::new(session_id.clone()))),
+                sea_orm::Value::String(Some(Box::new(user.username.clone()))),
+                sea_orm::Value::Bool(Some(user.is_superuser)),
+                sea_orm::Value::ChronoDateTime(Some(Box::new(expires_at))),
+            ],
+        );
+        self.db
+            .execute(stmt)
+            .await
+            .map_err(|e| AdminError::Internal(e.to_string()))?;
+
+        Ok(AdminUser {
+            username: user.username,
+            session_id,
             is_superuser: user.is_superuser,
-        };
-        self.sessions
-            .write()
-            .unwrap()
-            .insert(session_id, admin_user.clone());
-        Ok(admin_user)
+        })
     }
 
     async fn get_session(&self, session_id: &str) -> Result<Option<AdminUser>, AdminError> {
-        let sessions = self.sessions.read().unwrap();
-        Ok(sessions.get(session_id).cloned())
+        use sea_orm::TryGetable;
+
+        let now = chrono::Utc::now().naive_utc();
+        let backend = self.db.get_database_backend();
+
+        let sql = crate::adapters::seaorm::rebind(
+            "SELECT username, is_superuser, expires_at FROM auth_sessions WHERE id = ?",
+            backend,
+        );
+        let stmt = Statement::from_sql_and_values(
+            backend,
+            &sql,
+            [sea_orm::Value::String(Some(Box::new(session_id.to_string())))],
+        );
+        let row = self
+            .db
+            .query_one(stmt)
+            .await
+            .map_err(|e| AdminError::Internal(e.to_string()))?;
+
+        let row = match row {
+            None => return Ok(None),
+            Some(r) => r,
+        };
+
+        let expires_at: chrono::NaiveDateTime = chrono::NaiveDateTime::try_get(&row, "", "expires_at")
+            .map_err(|_| AdminError::Internal("failed to read expires_at".to_string()))?;
+
+        if expires_at <= now {
+            let del_sql = crate::adapters::seaorm::rebind(
+                "DELETE FROM auth_sessions WHERE id = ?",
+                backend,
+            );
+            let del_stmt = Statement::from_sql_and_values(
+                backend,
+                &del_sql,
+                [sea_orm::Value::String(Some(Box::new(session_id.to_string())))],
+            );
+            let _ = self.db.execute(del_stmt).await;
+            return Ok(None);
+        }
+
+        let username: String = String::try_get(&row, "", "username")
+            .map_err(|_| AdminError::Internal("failed to read username".to_string()))?;
+        let is_superuser: bool = bool::try_get(&row, "", "is_superuser")
+            .map_err(|_| AdminError::Internal("failed to read is_superuser".to_string()))?;
+
+        Ok(Some(AdminUser {
+            username,
+            session_id: session_id.to_string(),
+            is_superuser,
+        }))
     }
 }

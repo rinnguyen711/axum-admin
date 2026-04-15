@@ -48,15 +48,42 @@ use crate::{
 use async_trait::async_trait;
 use sea_orm::{
     sea_query::{Condition, Expr},
-    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IdenStatic, PaginatorTrait, QueryFilter,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, IdenStatic, PaginatorTrait, QueryFilter,
     QueryResult, Statement, TryGetable,
 };
+
+/// Replace `?` placeholders with `$1`, `$2`, … for PostgreSQL.
+/// For MySQL/SQLite the original `?` form is returned unchanged.
+pub(crate) fn rebind(sql: &str, backend: DbBackend) -> String {
+    if backend != DbBackend::Postgres {
+        return sql.to_string();
+    }
+    let mut out = String::with_capacity(sql.len() + 16);
+    let mut n = 1usize;
+    let mut chars = sql.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '?' {
+            out.push('$');
+            out.push_str(&n.to_string());
+            n += 1;
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
 use std::{collections::HashMap, marker::PhantomData};
 
 /// Convert a serde_json Value to a SeaORM bind Value.
 fn json_to_sea_value(v: &Value) -> SeaValue {
     match v {
-        Value::String(s) => SeaValue::String(Some(Box::new(s.clone()))),
+        Value::String(s) => {
+            if let Ok(i) = s.parse::<i64>() {
+                SeaValue::BigInt(Some(i))
+            } else {
+                SeaValue::String(Some(Box::new(s.clone())))
+            }
+        }
         Value::Number(n) => {
             if let Some(i) = n.as_i64() {
                 SeaValue::BigInt(Some(i))
@@ -77,11 +104,15 @@ fn query_result_to_map(row: &QueryResult) -> HashMap<String, Value> {
     let cols = row.column_names();
     let mut map = HashMap::new();
     for col in &cols {
-        // Try i64 first (covers INTEGER, BIGINT), then f64 (REAL/FLOAT), then String (TEXT)
-        let v = if let Ok(i) = i64::try_get_by(row, col.as_str()) {
+        // Try integer types first, then float, then String (TEXT)
+        let v = if let Ok(i) = i32::try_get_by(row, col.as_str()) {
+            json!(i)
+        } else if let Ok(i) = i64::try_get_by(row, col.as_str()) {
             json!(i)
         } else if let Ok(f) = f64::try_get_by(row, col.as_str()) {
             json!(f)
+        } else if let Ok(b) = bool::try_get_by(row, col.as_str()) {
+            json!(b)
         } else if let Ok(s) = String::try_get_by(row, col.as_str()) {
             json!(s)
         } else {
@@ -176,9 +207,9 @@ where
         };
 
         let offset = params.page.saturating_sub(1) * params.per_page;
-        let sql = format!(
-            "SELECT * FROM {}{}{} LIMIT ? OFFSET ?",
-            table, where_clause, order_clause
+        let sql = rebind(
+            &format!("SELECT * FROM {}{}{} LIMIT ? OFFSET ?", table, where_clause, order_clause),
+            self.db.get_database_backend(),
         );
         bind_vals.push(SeaValue::BigInt(Some(params.per_page as i64)));
         bind_vals.push(SeaValue::BigInt(Some(offset as i64)));
@@ -196,7 +227,7 @@ where
     async fn get(&self, id: &Value) -> Result<HashMap<String, Value>, AdminError> {
         let table = sea_orm::EntityName::table_name(&E::default()).to_string();
         let id_val = json_to_sea_value(id);
-        let sql = format!("SELECT * FROM {} WHERE id = ? LIMIT 1", table);
+        let sql = rebind(&format!("SELECT * FROM {} WHERE id = ? LIMIT 1", table), self.db.get_database_backend());
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, [id_val]);
         let result = self
             .db
@@ -215,23 +246,47 @@ where
             return Err(AdminError::DatabaseError("No fields provided for insert".to_string()));
         }
         let placeholders = cols.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-        let sql = format!(
-            "INSERT INTO {} ({}) VALUES ({})",
-            table,
-            cols.join(", "),
-            placeholders,
-        );
         let vals: Vec<SeaValue> = cols
             .iter()
             .map(|k| json_to_sea_value(data.get(k).unwrap()))
             .collect();
-        let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, vals);
-        let res = self
-            .db
-            .execute(stmt)
-            .await
-            .map_err(|e| AdminError::DatabaseError(e.to_string()))?;
-        Ok(Value::Number(res.last_insert_id().into()))
+        let backend = self.db.get_database_backend();
+        if backend == DbBackend::Postgres {
+            let raw = format!(
+                "INSERT INTO {} ({}) VALUES ({}) RETURNING id",
+                table,
+                cols.join(", "),
+                placeholders,
+            );
+            let sql = rebind(&raw, backend);
+            let stmt = Statement::from_sql_and_values(backend, &sql, vals);
+            let row = self
+                .db
+                .query_one(stmt)
+                .await
+                .map_err(|e| AdminError::DatabaseError(e.to_string()))?
+                .ok_or_else(|| AdminError::DatabaseError("INSERT returned no row".to_string()))?;
+            let id = i32::try_get_by(&row, "id")
+                .map(|n| n as i64)
+                .or_else(|_| i64::try_get_by(&row, "id"))
+                .map_err(|_| AdminError::DatabaseError("failed to read inserted id".to_string()))?;
+            Ok(Value::Number(id.into()))
+        } else {
+            let raw = format!(
+                "INSERT INTO {} ({}) VALUES ({})",
+                table,
+                cols.join(", "),
+                placeholders,
+            );
+            let sql = rebind(&raw, backend);
+            let stmt = Statement::from_sql_and_values(backend, &sql, vals);
+            let res = self
+                .db
+                .execute(stmt)
+                .await
+                .map_err(|e| AdminError::DatabaseError(e.to_string()))?;
+            Ok(Value::Number(res.last_insert_id().into()))
+        }
     }
 
     async fn update(&self, id: &Value, data: HashMap<String, Value>) -> Result<(), AdminError> {
@@ -248,7 +303,7 @@ where
             .map(|k| json_to_sea_value(data.get(k).unwrap()))
             .collect();
         vals.push(json_to_sea_value(id));
-        let sql = format!("UPDATE {} SET {} WHERE id = ?", table, set_clause);
+        let sql = rebind(&format!("UPDATE {} SET {} WHERE id = ?", table, set_clause), self.db.get_database_backend());
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, vals);
         self.db
             .execute(stmt)
@@ -260,7 +315,7 @@ where
     async fn delete(&self, id: &Value) -> Result<(), AdminError> {
         let table = sea_orm::EntityName::table_name(&E::default()).to_string();
         let id_val = json_to_sea_value(id);
-        let sql = format!("DELETE FROM {} WHERE id = ?", table);
+        let sql = rebind(&format!("DELETE FROM {} WHERE id = ?", table), self.db.get_database_backend());
         let stmt = Statement::from_sql_and_values(self.db.get_database_backend(), &sql, [id_val]);
         self.db
             .execute(stmt)
@@ -390,11 +445,8 @@ impl ManyToManyAdapter for SeaOrmManyToManyAdapter {
             .filter_map(|row| {
                 let value = String::try_get_by(row, self.value_col.as_str())
                     .ok()
-                    .or_else(|| {
-                        i64::try_get_by(row, self.value_col.as_str())
-                            .ok()
-                            .map(|n| n.to_string())
-                    })?;
+                    .or_else(|| i32::try_get_by(row, self.value_col.as_str()).ok().map(|n| n.to_string()))
+                    .or_else(|| i64::try_get_by(row, self.value_col.as_str()).ok().map(|n| n.to_string()))?;
                 let label = String::try_get_by(row, self.label_col.as_str())
                     .unwrap_or_else(|_| value.clone());
                 Some((value, label))
@@ -404,9 +456,9 @@ impl ManyToManyAdapter for SeaOrmManyToManyAdapter {
 
     async fn fetch_selected(&self, record_id: &Value) -> Result<Vec<String>, AdminError> {
         let id_val = json_to_sea_value(record_id);
-        let sql = format!(
-            "SELECT {} FROM {} WHERE {} = ?",
-            self.target_col, self.junction_table, self.source_col
+        let sql = rebind(
+            &format!("SELECT {} FROM {} WHERE {} = ?", self.target_col, self.junction_table, self.source_col),
+            self.db.get_database_backend(),
         );
         let stmt = Statement::from_sql_and_values(
             self.db.get_database_backend(),
@@ -424,11 +476,8 @@ impl ManyToManyAdapter for SeaOrmManyToManyAdapter {
             .filter_map(|row| {
                 String::try_get_by(row, self.target_col.as_str())
                     .ok()
-                    .or_else(|| {
-                        i64::try_get_by(row, self.target_col.as_str())
-                            .ok()
-                            .map(|n| n.to_string())
-                    })
+                    .or_else(|| i32::try_get_by(row, self.target_col.as_str()).ok().map(|n| n.to_string()))
+                    .or_else(|| i64::try_get_by(row, self.target_col.as_str()).ok().map(|n| n.to_string()))
             })
             .collect())
     }
@@ -437,9 +486,9 @@ impl ManyToManyAdapter for SeaOrmManyToManyAdapter {
         let id_val = json_to_sea_value(record_id);
 
         // Delete existing junction rows for this record
-        let del_sql = format!(
-            "DELETE FROM {} WHERE {} = ?",
-            self.junction_table, self.source_col
+        let del_sql = rebind(
+            &format!("DELETE FROM {} WHERE {} = ?", self.junction_table, self.source_col),
+            self.db.get_database_backend(),
         );
         let del_stmt = Statement::from_sql_and_values(
             self.db.get_database_backend(),
@@ -453,16 +502,20 @@ impl ManyToManyAdapter for SeaOrmManyToManyAdapter {
 
         // Insert new rows
         for target_id in &selected_ids {
-            let ins_sql = format!(
-                "INSERT INTO {} ({}, {}) VALUES (?, ?)",
-                self.junction_table, self.source_col, self.target_col
+            let ins_sql = rebind(
+                &format!("INSERT INTO {} ({}, {}) VALUES (?, ?)", self.junction_table, self.source_col, self.target_col),
+                self.db.get_database_backend(),
             );
             let ins_stmt = Statement::from_sql_and_values(
                 self.db.get_database_backend(),
                 &ins_sql,
                 [
                     id_val.clone(),
-                    SeaValue::String(Some(Box::new(target_id.clone()))),
+                    if let Ok(n) = target_id.parse::<i64>() {
+                        SeaValue::BigInt(Some(n))
+                    } else {
+                        SeaValue::String(Some(Box::new(target_id.clone())))
+                    },
                 ],
             );
             self.db
