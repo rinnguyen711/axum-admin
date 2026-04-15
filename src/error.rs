@@ -15,6 +15,9 @@ pub enum AdminError {
     #[error("unauthorized")]
     Unauthorized,
 
+    #[error("conflict: {0}")]
+    Conflict(String),
+
     #[error("error: {0}")]
     Custom(String),
 
