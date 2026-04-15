@@ -6,7 +6,7 @@ use axum_admin::{
 };
 use sea_orm::DatabaseConnection;
 
-use crate::{category, post};
+use crate::{category, post, tag};
 
 pub async fn build(db: DatabaseConnection) -> Router {
     let auth = SeaOrmAdminAuth::new(db.clone())
@@ -68,6 +68,14 @@ pub async fn build(db: DatabaseConnection) -> Router {
                         .search_fields(vec!["title".to_string(), "body".to_string()])
                         .filter_fields(vec!["status".to_string(), "category_id".to_string()])
                         .adapter(Box::new(SeaOrmAdapter::<post::Entity>::new(db.clone()))),
+                )
+                .register(
+                    EntityAdmin::from_entity::<tag::Entity>("tags")
+                        .label("Tags")
+                        .icon("fa-solid fa-tag")
+                        .list_display(vec!["id".to_string(), "name".to_string()])
+                        .search_fields(vec!["name".to_string()])
+                        .adapter(Box::new(SeaOrmAdapter::<tag::Entity>::new(db.clone()))),
                 ),
         )
         .into_router()

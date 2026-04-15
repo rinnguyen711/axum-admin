@@ -48,6 +48,22 @@ mod post {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
+pub mod tag {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "tags")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        pub id: i32,
+        pub name: String,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+    impl ActiveModelBehavior for ActiveModel {}
+}
+
 async fn connect_db() -> DatabaseConnection {
     let url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://blog:blog@localhost:5432/blog".to_string());
