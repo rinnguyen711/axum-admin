@@ -9,7 +9,8 @@ Inspired by Django Admin and Laravel Nova.
 - CRUD out of the box — list, create, edit, delete for any entity
 - Server-side rendering via MiniJinja, no JS framework required
 - HTMX + Alpine.js embedded, no CDN or build step
-- Session-based auth with bcrypt; swap in your own backend
+- Session-based auth with argon2; swap in your own backend
+- RBAC via Casbin — per-entity permissions tied to user roles (SeaORM feature)
 - Sidebar groups with collapsible sections and custom icons
 - Filters, search, column sorting, pagination
 - Bulk actions (delete, CSV export) and per-record custom actions
