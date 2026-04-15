@@ -241,6 +241,52 @@ impl SeaOrmAdminAuth {
         Ok(())
     }
 
+    /// Create a new role with the given permissions. Returns `AdminError::Conflict` if
+    /// the role already has any policies (i.e. it already exists).
+    pub async fn create_role(
+        &self,
+        name: &str,
+        permissions: &[(String, String)],
+    ) -> Result<(), AdminError> {
+        use casbin::{MgmtApi, RbacApi};
+        let prefixed = format!("role:{name}");
+        let mut enforcer = self.enforcer.write().await;
+        // Check if role already exists by looking for any policy with this subject
+        let existing = enforcer.get_permissions_for_user(&prefixed, None);
+        if !existing.is_empty() {
+            return Err(AdminError::Conflict(format!("role '{name}' already exists")));
+        }
+        for (entity, action) in permissions {
+            let rule = vec![prefixed.clone(), entity.clone(), action.clone()];
+            enforcer
+                .add_policy(rule)
+                .await
+                .map_err(|e| AdminError::Internal(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    /// Returns all `(entity, action)` pairs for the given role name.
+    pub fn get_role_permissions(&self, name: &str) -> Vec<(String, String)> {
+        use casbin::RbacApi;
+        let prefixed = format!("role:{name}");
+        let enforcer = match self.enforcer.try_read() {
+            Ok(e) => e,
+            Err(_) => return vec![],
+        };
+        enforcer
+            .get_permissions_for_user(&prefixed, None)
+            .into_iter()
+            .filter_map(|rule: Vec<String>| {
+                if rule.len() >= 3 {
+                    Some((rule[1].clone(), rule[2].clone()))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     pub fn db(&self) -> &DatabaseConnection {
         &self.db
     }

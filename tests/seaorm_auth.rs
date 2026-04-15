@@ -217,6 +217,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn create_role_adds_permissions() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+
+        auth.create_role("editor", &[
+            ("posts".to_string(), "view".to_string()),
+            ("posts".to_string(), "create".to_string()),
+            ("posts".to_string(), "edit".to_string()),
+        ]).await.unwrap();
+
+        let perms = auth.get_role_permissions("editor");
+        assert!(perms.contains(&("posts".to_string(), "view".to_string())));
+        assert!(perms.contains(&("posts".to_string(), "create".to_string())));
+        assert!(perms.contains(&("posts".to_string(), "edit".to_string())));
+        assert!(!perms.contains(&("posts".to_string(), "delete".to_string())));
+    }
+
+    #[tokio::test]
+    async fn create_role_duplicate_returns_conflict() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+        use axum_admin::AdminError;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+
+        auth.create_role("editor", &[
+            ("posts".to_string(), "view".to_string()),
+        ]).await.unwrap();
+
+        let result = auth.create_role("editor", &[
+            ("posts".to_string(), "view".to_string()),
+        ]).await;
+        assert!(matches!(result, Err(AdminError::Conflict(_))));
+    }
+
+    #[tokio::test]
     async fn change_password_page_returns_200() {
         use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
         use axum_test::{TestServer, TestServerConfig};
