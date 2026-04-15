@@ -287,6 +287,60 @@ impl SeaOrmAdminAuth {
             .collect()
     }
 
+    /// Replace all permissions for the given role with the new set.
+    pub async fn update_role_permissions(
+        &self,
+        name: &str,
+        permissions: &[(String, String)],
+    ) -> Result<(), AdminError> {
+        use casbin::{MgmtApi, RbacApi};
+        let prefixed = format!("role:{name}");
+        let mut enforcer = self.enforcer.write().await;
+        // Remove all existing policies for this role
+        let existing = enforcer.get_permissions_for_user(&prefixed, None);
+        for rule in existing {
+            if rule.len() >= 3 {
+                let full_rule = vec![prefixed.clone(), rule[1].clone(), rule[2].clone()];
+                let _ = enforcer.remove_policy(full_rule).await;
+            }
+        }
+        // Insert new permissions
+        for (entity, action) in permissions {
+            let rule = vec![prefixed.clone(), entity.clone(), action.clone()];
+            enforcer
+                .add_policy(rule)
+                .await
+                .map_err(|e| AdminError::Internal(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    /// Delete a role and all its policies. Returns `AdminError::Conflict` if any
+    /// users are currently assigned to the role.
+    pub async fn delete_role(&self, name: &str) -> Result<(), AdminError> {
+        use casbin::{MgmtApi, RbacApi};
+        let prefixed = format!("role:{name}");
+        let mut enforcer = self.enforcer.write().await;
+        // Check for assigned users
+        let users = enforcer.get_users_for_role(&prefixed, None);
+        if !users.is_empty() {
+            return Err(AdminError::Conflict(format!(
+                "Cannot delete role '{}': {} user(s) assigned",
+                name,
+                users.len()
+            )));
+        }
+        // Remove all policies where role is the subject
+        let existing = enforcer.get_permissions_for_user(&prefixed, None);
+        for rule in existing {
+            if rule.len() >= 3 {
+                let full_rule = vec![prefixed.clone(), rule[1].clone(), rule[2].clone()];
+                let _ = enforcer.remove_policy(full_rule).await;
+            }
+        }
+        Ok(())
+    }
+
     pub fn db(&self) -> &DatabaseConnection {
         &self.db
     }

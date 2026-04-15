@@ -255,6 +255,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn update_role_permissions_replaces_policies() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+
+        auth.create_role("editor", &[
+            ("posts".to_string(), "view".to_string()),
+            ("posts".to_string(), "create".to_string()),
+        ]).await.unwrap();
+
+        // Update: remove create, add edit
+        auth.update_role_permissions("editor", &[
+            ("posts".to_string(), "view".to_string()),
+            ("posts".to_string(), "edit".to_string()),
+        ]).await.unwrap();
+
+        let perms = auth.get_role_permissions("editor");
+        assert!(perms.contains(&("posts".to_string(), "view".to_string())));
+        assert!(perms.contains(&("posts".to_string(), "edit".to_string())));
+        assert!(!perms.contains(&("posts".to_string(), "create".to_string())));
+    }
+
+    #[tokio::test]
+    async fn delete_role_removes_policies() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+
+        auth.create_role("editor", &[
+            ("posts".to_string(), "view".to_string()),
+        ]).await.unwrap();
+
+        auth.delete_role("editor").await.unwrap();
+
+        let roles = auth.list_roles();
+        assert!(!roles.contains(&"editor".to_string()));
+    }
+
+    #[tokio::test]
+    async fn delete_role_blocked_when_users_assigned() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+        use axum_admin::AdminError;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+
+        auth.ensure_user("alice", "secret").await.unwrap();
+        auth.create_role("editor", &[
+            ("posts".to_string(), "view".to_string()),
+        ]).await.unwrap();
+        auth.assign_role("alice", "editor").await.unwrap();
+
+        let result = auth.delete_role("editor").await;
+        assert!(matches!(result, Err(AdminError::Conflict(_))));
+    }
+
+    #[tokio::test]
     async fn change_password_page_returns_200() {
         use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
         use axum_test::{TestServer, TestServerConfig};
