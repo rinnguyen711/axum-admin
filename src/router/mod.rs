@@ -10,7 +10,6 @@ mod roles;
 
 use crate::{app::AdminApp, middleware::require_auth};
 use axum::{
-    extract::Path,
     http::header,
     middleware,
     response::{IntoResponse, Redirect},
@@ -44,6 +43,7 @@ async fn serve_admin_css() -> impl IntoResponse {
 
 impl AdminApp {
     pub async fn into_router(self) -> Router {
+        #[cfg(feature = "seaorm")]
         let entity_names: Vec<String> = self
             .entities
             .iter()
@@ -62,6 +62,7 @@ impl AdminApp {
 
         #[cfg(feature = "seaorm")]
         let protected = {
+            use axum::extract::Path;
             Router::new()
                 .route("/admin", get(|| async { Redirect::permanent("/admin/") }))
                 .route("/admin/", get(entity::admin_home))
@@ -93,6 +94,7 @@ impl AdminApp {
         let protected = {
             Router::new()
                 .route("/admin", get(|| async { Redirect::permanent("/admin/") }))
+                .route("/admin/", get(|| async { axum::response::Html("<h1>axum-admin</h1><p>Enable the <code>seaorm</code> feature to use the admin dashboard.</p>") }))
                 .route("/admin/logout", get(auth::logout))
                 .route("/admin/change-password", get(auth::change_password_page))
                 .route("/admin/change-password", post(auth::change_password_submit))
