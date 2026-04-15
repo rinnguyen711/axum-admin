@@ -1,13 +1,39 @@
 use crate::app::AdminAppState;
-use axum::{extract::Extension, response::{Html, IntoResponse, Response}};
-use serde::Serialize;
+use crate::auth::AdminUser;
+use axum::{
+    extract::{Extension, Form, Path},
+    http::{header::LOCATION, StatusCode},
+    response::{Html, IntoResponse, Response},
+};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tower_cookies::Cookies;
 
+use super::csrf::get_or_create_csrf;
 use super::helpers::build_nav;
 
 #[derive(Serialize)]
-struct EntityPermRow {
-    label: String,
+struct RoleRow {
+    name: String,
+    entity_count: usize,
+}
+
+#[derive(Serialize)]
+struct RoleListContext {
+    admin_title: String,
+    admin_icon: String,
+    nav: Vec<crate::render::context::NavItem>,
+    current_entity: String,
+    show_auth_nav: bool,
+    roles: Vec<RoleRow>,
+    flash_error: Option<String>,
+    flash_success: Option<String>,
+}
+
+#[derive(Serialize)]
+struct PermRow {
+    entity_name: String,
+    entity_label: String,
     view: bool,
     create: bool,
     edit: bool,
@@ -15,62 +41,304 @@ struct EntityPermRow {
 }
 
 #[derive(Serialize)]
-struct RoleSection {
-    role_label: String,
-    entities: Vec<EntityPermRow>,
-}
-
-#[derive(Serialize)]
-struct RolesContext {
+struct RoleFormContext {
     admin_title: String,
     admin_icon: String,
     nav: Vec<crate::render::context::NavItem>,
     current_entity: String,
     show_auth_nav: bool,
-    roles: Vec<RoleSection>,
+    role_name: Option<String>,
+    perms: Vec<PermRow>,
+    csrf_token: String,
+    error: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub(super) struct RoleForm {
+    name: Option<String>,
+    #[serde(default)]
+    perms: Vec<String>, // "entity.action" strings
+    #[allow(dead_code)]
+    csrf_token: Option<String>,
 }
 
 pub(super) async fn role_list(
     Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
 ) -> Response {
-    let entity_labels: Vec<(String, String)> = state
+    #[cfg(feature = "seaorm")]
+    if let Some(ref seaorm) = state.seaorm_auth {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
+        let role_names = seaorm.list_roles();
+        let rows: Vec<RoleRow> = role_names
+            .into_iter()
+            .map(|name| {
+                let perms = seaorm.get_role_permissions(&name);
+                let entity_count = perms
+                    .iter()
+                    .map(|(e, _)| e.clone())
+                    .collect::<std::collections::HashSet<_>>()
+                    .len();
+                RoleRow { name, entity_count }
+            })
+            .collect();
+        let ctx = RoleListContext {
+            admin_title: state.title.clone(),
+            admin_icon: state.icon.clone(),
+            nav: build_nav(&state, ""),
+            current_entity: "__roles".to_string(),
+            show_auth_nav: state.show_auth_nav,
+            roles: rows,
+            flash_error: None,
+            flash_success: None,
+        };
+        return Html(state.renderer.render("roles.html", ctx)).into_response();
+    }
+    (StatusCode::NOT_FOUND, "Role management requires seaorm feature").into_response()
+}
+
+pub(super) async fn role_list_with_flash(
+    state: &Arc<AdminAppState>,
+    flash_error: Option<String>,
+    flash_success: Option<String>,
+) -> Response {
+    #[cfg(feature = "seaorm")]
+    if let Some(ref seaorm) = state.seaorm_auth {
+        let role_names = seaorm.list_roles();
+        let rows: Vec<RoleRow> = role_names
+            .into_iter()
+            .map(|name| {
+                let perms = seaorm.get_role_permissions(&name);
+                let entity_count = perms
+                    .iter()
+                    .map(|(e, _)| e.clone())
+                    .collect::<std::collections::HashSet<_>>()
+                    .len();
+                RoleRow { name, entity_count }
+            })
+            .collect();
+        let ctx = RoleListContext {
+            admin_title: state.title.clone(),
+            admin_icon: state.icon.clone(),
+            nav: build_nav(state, ""),
+            current_entity: "__roles".to_string(),
+            show_auth_nav: state.show_auth_nav,
+            roles: rows,
+            flash_error,
+            flash_success,
+        };
+        return Html(state.renderer.render("roles.html", ctx)).into_response();
+    }
+    (StatusCode::NOT_FOUND, "Role management requires seaorm feature").into_response()
+}
+
+fn build_perm_rows(state: &AdminAppState, checked: &[(String, String)]) -> Vec<PermRow> {
+    state
         .entities
         .iter()
-        .map(|e| (e.entity_name.clone(), e.label.clone()))
-        .collect();
-
-    let admin_entities: Vec<EntityPermRow> = entity_labels
-        .iter()
-        .map(|(_, label)| EntityPermRow {
-            label: label.clone(),
-            view: true,
-            create: true,
-            edit: true,
-            delete: true,
+        .map(|e| {
+            let has = |action: &str| {
+                checked
+                    .iter()
+                    .any(|(ent, act)| ent == &e.entity_name && act == action)
+            };
+            PermRow {
+                entity_name: e.entity_name.clone(),
+                entity_label: e.label.clone(),
+                view: has("view"),
+                create: has("create"),
+                edit: has("edit"),
+                delete: has("delete"),
+            }
         })
-        .collect();
+        .collect()
+}
 
-    let viewer_entities: Vec<EntityPermRow> = entity_labels
-        .iter()
-        .map(|(_, label)| EntityPermRow {
-            label: label.clone(),
-            view: true,
-            create: false,
-            edit: false,
-            delete: false,
-        })
-        .collect();
+pub(super) async fn role_create_form(
+    cookies: Cookies,
+    Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
+) -> Response {
+    #[cfg(feature = "seaorm")]
+    if state.seaorm_auth.is_some() {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
+        let perms = build_perm_rows(&state, &[]);
+        let ctx = RoleFormContext {
+            admin_title: state.title.clone(),
+            admin_icon: state.icon.clone(),
+            nav: build_nav(&state, ""),
+            current_entity: "__roles".to_string(),
+            show_auth_nav: state.show_auth_nav,
+            role_name: None,
+            perms,
+            csrf_token: get_or_create_csrf(&cookies),
+            error: None,
+        };
+        return Html(state.renderer.render("role_form.html", ctx)).into_response();
+    }
+    (StatusCode::NOT_FOUND, "Role management requires seaorm feature").into_response()
+}
 
-    let ctx = RolesContext {
-        admin_title: state.title.clone(),
-        admin_icon: state.icon.clone(),
-        nav: build_nav(&state, ""),
-        current_entity: "__roles".to_string(),
-        show_auth_nav: state.show_auth_nav,
-        roles: vec![
-            RoleSection { role_label: "Admin".to_string(), entities: admin_entities },
-            RoleSection { role_label: "Viewer".to_string(), entities: viewer_entities },
-        ],
-    };
-    Html(state.renderer.render("roles.html", ctx)).into_response()
+pub(super) async fn role_create_submit(
+    cookies: Cookies,
+    Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
+    Form(form): Form<RoleForm>,
+) -> Response {
+    #[cfg(feature = "seaorm")]
+    if let Some(ref seaorm) = state.seaorm_auth {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
+        let name = match form.name.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(n) => n.to_string(),
+            None => {
+                let perms = build_perm_rows(&state, &[]);
+                let ctx = RoleFormContext {
+                    admin_title: state.title.clone(),
+                    admin_icon: state.icon.clone(),
+                    nav: build_nav(&state, ""),
+                    current_entity: "__roles".to_string(),
+                    show_auth_nav: state.show_auth_nav,
+                    role_name: None,
+                    perms,
+                    csrf_token: get_or_create_csrf(&cookies),
+                    error: Some("Role name is required".to_string()),
+                };
+                return Html(state.renderer.render("role_form.html", ctx)).into_response();
+            }
+        };
+        let permissions: Vec<(String, String)> = form
+            .perms
+            .iter()
+            .filter_map(|p| {
+                let mut parts = p.splitn(2, '.');
+                let entity = parts.next()?.to_string();
+                let action = parts.next()?.to_string();
+                Some((entity, action))
+            })
+            .collect();
+        match seaorm.create_role(&name, &permissions).await {
+            Ok(_) => {
+                return (StatusCode::FOUND, [(LOCATION, "/admin/roles/")]).into_response();
+            }
+            Err(e) => {
+                let perms = build_perm_rows(&state, &permissions);
+                let ctx = RoleFormContext {
+                    admin_title: state.title.clone(),
+                    admin_icon: state.icon.clone(),
+                    nav: build_nav(&state, ""),
+                    current_entity: "__roles".to_string(),
+                    show_auth_nav: state.show_auth_nav,
+                    role_name: Some(name),
+                    perms,
+                    csrf_token: get_or_create_csrf(&cookies),
+                    error: Some(e.to_string()),
+                };
+                return Html(state.renderer.render("role_form.html", ctx)).into_response();
+            }
+        }
+    }
+    (StatusCode::NOT_FOUND, "Role management requires seaorm feature").into_response()
+}
+
+pub(super) async fn role_edit_form(
+    cookies: Cookies,
+    Path(role): Path<String>,
+    Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
+) -> Response {
+    #[cfg(feature = "seaorm")]
+    if let Some(ref seaorm) = state.seaorm_auth {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
+        let current_perms = seaorm.get_role_permissions(&role);
+        let perms = build_perm_rows(&state, &current_perms);
+        let ctx = RoleFormContext {
+            admin_title: state.title.clone(),
+            admin_icon: state.icon.clone(),
+            nav: build_nav(&state, ""),
+            current_entity: "__roles".to_string(),
+            show_auth_nav: state.show_auth_nav,
+            role_name: Some(role),
+            perms,
+            csrf_token: get_or_create_csrf(&cookies),
+            error: None,
+        };
+        return Html(state.renderer.render("role_edit_form.html", ctx)).into_response();
+    }
+    (StatusCode::NOT_FOUND, "Role management requires seaorm feature").into_response()
+}
+
+pub(super) async fn role_edit_submit(
+    cookies: Cookies,
+    Path(role): Path<String>,
+    Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
+    Form(form): Form<RoleForm>,
+) -> Response {
+    #[cfg(feature = "seaorm")]
+    if let Some(ref seaorm) = state.seaorm_auth {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
+        let permissions: Vec<(String, String)> = form
+            .perms
+            .iter()
+            .filter_map(|p| {
+                let mut parts = p.splitn(2, '.');
+                let entity = parts.next()?.to_string();
+                let action = parts.next()?.to_string();
+                Some((entity, action))
+            })
+            .collect();
+        match seaorm.update_role_permissions(&role, &permissions).await {
+            Ok(_) => {
+                return (StatusCode::FOUND, [(LOCATION, "/admin/roles/")]).into_response();
+            }
+            Err(e) => {
+                let perms = build_perm_rows(&state, &permissions);
+                let ctx = RoleFormContext {
+                    admin_title: state.title.clone(),
+                    admin_icon: state.icon.clone(),
+                    nav: build_nav(&state, ""),
+                    current_entity: "__roles".to_string(),
+                    show_auth_nav: state.show_auth_nav,
+                    role_name: Some(role),
+                    perms,
+                    csrf_token: get_or_create_csrf(&cookies),
+                    error: Some(e.to_string()),
+                };
+                return Html(state.renderer.render("role_edit_form.html", ctx)).into_response();
+            }
+        }
+    }
+    (StatusCode::NOT_FOUND, "Role management requires seaorm feature").into_response()
+}
+
+pub(super) async fn role_delete(
+    Path(role): Path<String>,
+    Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
+) -> Response {
+    #[cfg(feature = "seaorm")]
+    if let Some(ref seaorm) = state.seaorm_auth {
+        if !user.is_superuser {
+            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        }
+        match seaorm.delete_role(&role).await {
+            Ok(_) => {
+                return role_list_with_flash(&state, None, Some(format!("Role '{}' deleted.", role))).await;
+            }
+            Err(e) => {
+                return role_list_with_flash(&state, Some(e.to_string()), None).await;
+            }
+        }
+    }
+    (StatusCode::NOT_FOUND, "Role management requires seaorm feature").into_response()
 }
