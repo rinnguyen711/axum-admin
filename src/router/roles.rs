@@ -67,34 +67,11 @@ pub(super) async fn role_list(
     Extension(user): Extension<AdminUser>,
 ) -> Response {
     #[cfg(feature = "seaorm")]
-    if let Some(ref seaorm) = state.seaorm_auth {
+    if state.seaorm_auth.is_some() {
         if !user.is_superuser {
             return (StatusCode::FORBIDDEN, "Forbidden").into_response();
         }
-        let role_names = seaorm.list_roles();
-        let rows: Vec<RoleRow> = role_names
-            .into_iter()
-            .map(|name| {
-                let perms = seaorm.get_role_permissions(&name);
-                let entity_count = perms
-                    .iter()
-                    .map(|(e, _)| e.clone())
-                    .collect::<std::collections::HashSet<_>>()
-                    .len();
-                RoleRow { name, entity_count }
-            })
-            .collect();
-        let ctx = RoleListContext {
-            admin_title: state.title.clone(),
-            admin_icon: state.icon.clone(),
-            nav: build_nav(&state, ""),
-            current_entity: "__roles".to_string(),
-            show_auth_nav: state.show_auth_nav,
-            roles: rows,
-            flash_error: None,
-            flash_success: None,
-        };
-        return Html(state.renderer.render("roles.html", ctx)).into_response();
+        return role_list_with_flash(&state, None, None).await;
     }
     (StatusCode::NOT_FOUND, "Role management requires seaorm feature").into_response()
 }
@@ -162,7 +139,7 @@ pub(super) async fn role_create_form(
     Extension(user): Extension<AdminUser>,
 ) -> Response {
     #[cfg(feature = "seaorm")]
-    if state.seaorm_auth.is_some() {
+    if let Some(ref _seaorm) = state.seaorm_auth {
         if !user.is_superuser {
             return (StatusCode::FORBIDDEN, "Forbidden").into_response();
         }
