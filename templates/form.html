@@ -95,20 +95,9 @@
 
       {% elif field.field_type == "ManyToMany" %}
       {# Alpine.js multi-select — stores selection as a JSON array in a hidden input #}
-      <div x-data="{
-            options: {{ field.options | tojson }},
-            selected: {{ field.selected_ids | tojson }},
-            open: false,
-            toggle(val) {
-              const i = this.selected.indexOf(val);
-              if (i === -1) this.selected.push(val);
-              else this.selected.splice(i, 1);
-            },
-            label(val) {
-              const opt = this.options.find(o => o[0] === val);
-              return opt ? opt[1] : val;
-            }
-          }"
+      <div x-data="multiSelect"
+           data-options='{{ field.options | tojson }}'
+           data-selected='{{ field.selected_ids | tojson }}'
            @click.outside="open = false"
            class="relative">
         <input type="hidden" :name="'{{ field.name }}'" :value="JSON.stringify(selected)" />

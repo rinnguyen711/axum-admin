@@ -44,7 +44,17 @@
           {% endif %}
           {% for col in columns %}
           <td class="py-3 px-4 text-sm text-zinc-700">
-            {% if column_types[col] == "Image" %}
+            {% if loop.index == 1 and can_edit %}
+              <a href="/admin/{{ entity_name }}/{{ row.id }}/" class="font-medium text-zinc-900 hover:underline">
+                {% if column_types[col] == "Image" %}
+                  {% if row.data[col] %}<img src="{{ row.data[col] }}" class="h-10 w-auto rounded object-cover" alt="{{ row.data[col] | basename }}">{% endif %}
+                {% elif column_types[col] == "File" %}
+                  {{ row.data[col] | basename }}
+                {% else %}
+                  {{ row.data[col] }}
+                {% endif %}
+              </a>
+            {% elif column_types[col] == "Image" %}
               {% if row.data[col] %}<img src="{{ row.data[col] }}" class="h-10 w-auto rounded object-cover" alt="{{ row.data[col] | basename }}">{% endif %}
             {% elif column_types[col] == "File" %}
               {{ row.data[col] | basename }}

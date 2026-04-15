@@ -116,6 +116,7 @@ pub struct EntityAdmin {
     pub label: String,
     pub icon: String,
     pub group: Option<String>,
+    pub pk_field: String,
     pub fields: Vec<Field>,
     pub list_display: Vec<String>,
     pub search_fields: Vec<String>,
@@ -138,6 +139,7 @@ impl EntityAdmin {
             label: crate::field::default_label(_entity),
             icon: "fa-solid fa-layer-group".to_string(),
             group: None,
+            pk_field: "id".to_string(),
             fields: Vec::new(),
             list_display: Vec::new(),
             search_fields: Vec::new(),
@@ -166,6 +168,7 @@ impl EntityAdmin {
             label: crate::field::default_label(name),
             icon: "fa-solid fa-layer-group".to_string(),
             group: None,
+            pk_field: "id".to_string(),
             fields,
             list_display: Vec::new(),
             search_fields: Vec::new(),
@@ -184,6 +187,11 @@ impl EntityAdmin {
 
     pub fn label(mut self, label: &str) -> Self {
         self.label = label.to_string();
+        self
+    }
+
+    pub fn pk_field(mut self, pk: &str) -> Self {
+        self.pk_field = pk.to_string();
         self
     }
 

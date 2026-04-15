@@ -18,8 +18,8 @@ pub(super) fn value_to_string(v: &Value) -> String {
     }
 }
 
-pub(super) fn row_to_context(row: &HashMap<String, Value>) -> RowContext {
-    let id = row.get("id").map(value_to_string).unwrap_or_default();
+pub(super) fn row_to_context(row: &HashMap<String, Value>, pk_field: &str) -> RowContext {
+    let id = row.get(pk_field).map(value_to_string).unwrap_or_default();
     let data = row
         .iter()
         .map(|(k, v)| (k.clone(), value_to_string(v)))
@@ -245,7 +245,7 @@ pub(super) async fn fields_to_context(
                     ..Default::default()
                 };
                 let rows = adapter.list(params).await.unwrap_or_default();
-                let options = rows
+                let mut options: Vec<(String, String)> = rows
                     .iter()
                     .filter_map(|row| {
                         let value = row.get(value_field).map(value_to_string)?;
@@ -253,6 +253,9 @@ pub(super) async fn fields_to_context(
                         Some((value, label))
                     })
                     .collect();
+                if !f.required {
+                    options.insert(0, ("".to_string(), "---------".to_string()));
+                }
                 ("Select".to_string(), options, vec![])
             }
             FieldType::ManyToMany { adapter } => {

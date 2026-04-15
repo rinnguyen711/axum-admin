@@ -31,6 +31,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="/admin/_static/admin.css" />
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('multiSelect', () => ({
+        options: [],
+        selected: [],
+        open: false,
+        init() {
+          this.options = JSON.parse(this.$el.dataset.options || '[]');
+          this.selected = JSON.parse(this.$el.dataset.selected || '[]');
+        },
+        toggle(val) {
+          const i = this.selected.indexOf(val);
+          if (i === -1) this.selected.push(val);
+          else this.selected.splice(i, 1);
+        },
+        label(val) {
+          const opt = this.options.find(o => o[0] === val);
+          return opt ? opt[1] : val;
+        }
+      }));
+    });
+  </script>
   <script defer src="/admin/_static/alpine.min.js"></script>
   <script src="/admin/_static/htmx.min.js"></script>
 </head>
