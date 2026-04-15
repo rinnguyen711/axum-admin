@@ -2,6 +2,7 @@ use sea_orm_migration::prelude::*;
 
 mod m20240001_auth_users;
 mod m20240002_casbin_rule;
+mod m20240003_auth_sessions;
 
 pub struct Migrator;
 
@@ -11,6 +12,7 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(m20240001_auth_users::Migration),
             Box::new(m20240002_casbin_rule::Migration),
+            Box::new(m20240003_auth_sessions::Migration),
         ]
     }
 
