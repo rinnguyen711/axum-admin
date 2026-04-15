@@ -115,13 +115,14 @@ pub(super) async fn entity_list(
             entity.fields.iter().filter(|f| !f.hidden).map(|f| f.name.clone()).collect()
         },
         filters: active_filters_raw,
-        order_by: query.order_by.as_ref().map(|o| {
+        order_by: Some({
+            let col = query.order_by.as_deref().unwrap_or(&entity.pk_field).to_string();
             let dir = if query.order_dir.as_deref() == Some("desc") {
                 crate::adapter::SortOrder::Desc
             } else {
                 crate::adapter::SortOrder::Asc
             };
-            (o.clone(), dir)
+            (col, dir)
         }),
     };
 
@@ -176,7 +177,7 @@ pub(super) async fn entity_list(
         entity_label: entity.label.clone(),
         columns,
         column_types,
-        rows: rows.iter().map(row_to_context).collect(),
+        rows: rows.iter().map(|r| row_to_context(r, &entity.pk_field)).collect(),
         actions: entity
             .actions
             .iter()
@@ -372,6 +373,18 @@ pub(super) async fn entity_create_submit(
     // Extract ManyToMany fields from data
     let m2m_data = extract_m2m_data(&entity.fields, &mut data);
 
+    // Coerce empty strings to null for non-required FK/Select fields
+    for field in &entity.fields {
+        use crate::field::FieldType;
+        if !field.required && matches!(field.field_type, FieldType::ForeignKey { .. } | FieldType::Select(_)) {
+            if let Some(Value::String(s)) = data.get(&field.name) {
+                if s.is_empty() {
+                    data.insert(field.name.clone(), Value::Null);
+                }
+            }
+        }
+    }
+
     // Run declarative field validators (sync first, then async)
     if field_errors.is_empty() {
         field_errors = validate_fields(&entity.fields, &data);
@@ -535,6 +548,18 @@ pub(super) async fn entity_edit_submit(
 
     // Extract ManyToMany fields
     let m2m_data = extract_m2m_data(&entity.fields, &mut data);
+
+    // Coerce empty strings to null for non-required FK/Select fields
+    for field in &entity.fields {
+        use crate::field::FieldType;
+        if !field.required && matches!(field.field_type, FieldType::ForeignKey { .. } | FieldType::Select(_)) {
+            if let Some(Value::String(s)) = data.get(&field.name) {
+                if s.is_empty() {
+                    data.insert(field.name.clone(), Value::Null);
+                }
+            }
+        }
+    }
 
     // Run declarative validators
     let record_id_val = Value::String(id.clone());

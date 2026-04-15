@@ -1,8 +1,11 @@
 mod csrf;
 mod helpers;
 mod auth;
+#[cfg(feature = "seaorm")]
 mod entity;
+#[cfg(feature = "seaorm")]
 mod users;
+#[cfg(feature = "seaorm")]
 mod roles;
 
 use crate::{app::AdminApp, middleware::require_auth};
@@ -57,31 +60,45 @@ impl AdminApp {
 
         let (auth, state, upload_limit) = self.into_state();
 
-        let protected = Router::new()
-            .route("/admin", get(|| async { Redirect::permanent("/admin/") }))
-            .route("/admin/", get(entity::admin_home))
-            .route("/admin/logout", get(auth::logout))
-            .route("/admin/change-password", get(auth::change_password_page))
-            .route("/admin/change-password", post(auth::change_password_submit))
-            .route("/admin/users/", get(users::user_list))
-            .route("/admin/users/new", get(users::user_create_form))
-            .route("/admin/users/new", post(users::user_create_submit))
-            .route("/admin/users/:id/", get(users::user_edit_form))
-            .route("/admin/users/:id/", post(users::user_edit_submit))
-            .route("/admin/users/:id/delete", delete(users::user_delete))
-            .route("/admin/roles/", get(roles::role_list))
-            .route("/admin/:entity", get(|Path(e): Path<String>| async move {
-                Redirect::permanent(&format!("/admin/{}/", e))
-            }))
-            .route("/admin/:entity/", get(entity::entity_list))
-            .route("/admin/:entity/new", get(entity::entity_create_form))
-            .route("/admin/:entity/new", post(entity::entity_create_submit))
-            .route("/admin/:entity/:id/", get(entity::entity_edit_form))
-            .route("/admin/:entity/:id/", post(entity::entity_edit_submit))
-            .route("/admin/:entity/:id/delete", delete(entity::entity_delete))
-            .route("/admin/:entity/action/:action_name", post(entity::entity_action))
-            .route_layer(middleware::from_fn(require_auth))
-            .layer(DefaultBodyLimit::max(upload_limit));
+        #[cfg(feature = "seaorm")]
+        let protected = {
+            Router::new()
+                .route("/admin", get(|| async { Redirect::permanent("/admin/") }))
+                .route("/admin/", get(entity::admin_home))
+                .route("/admin/logout", get(auth::logout))
+                .route("/admin/change-password", get(auth::change_password_page))
+                .route("/admin/change-password", post(auth::change_password_submit))
+                .route("/admin/users/", get(users::user_list))
+                .route("/admin/users/new", get(users::user_create_form))
+                .route("/admin/users/new", post(users::user_create_submit))
+                .route("/admin/users/:id/", get(users::user_edit_form))
+                .route("/admin/users/:id/", post(users::user_edit_submit))
+                .route("/admin/users/:id/delete", delete(users::user_delete))
+                .route("/admin/roles/", get(roles::role_list))
+                .route("/admin/:entity", get(|Path(e): Path<String>| async move {
+                    Redirect::permanent(&format!("/admin/{}/", e))
+                }))
+                .route("/admin/:entity/", get(entity::entity_list))
+                .route("/admin/:entity/new", get(entity::entity_create_form))
+                .route("/admin/:entity/new", post(entity::entity_create_submit))
+                .route("/admin/:entity/:id/", get(entity::entity_edit_form))
+                .route("/admin/:entity/:id/", post(entity::entity_edit_submit))
+                .route("/admin/:entity/:id/delete", delete(entity::entity_delete))
+                .route("/admin/:entity/action/:action_name", post(entity::entity_action))
+                .route_layer(middleware::from_fn(require_auth))
+                .layer(DefaultBodyLimit::max(upload_limit))
+        };
+
+        #[cfg(not(feature = "seaorm"))]
+        let protected = {
+            Router::new()
+                .route("/admin", get(|| async { Redirect::permanent("/admin/") }))
+                .route("/admin/logout", get(auth::logout))
+                .route("/admin/change-password", get(auth::change_password_page))
+                .route("/admin/change-password", post(auth::change_password_submit))
+                .route_layer(middleware::from_fn(require_auth))
+                .layer(DefaultBodyLimit::max(upload_limit))
+        };
 
         Router::new()
             .route("/admin/login", get(auth::login_page))
