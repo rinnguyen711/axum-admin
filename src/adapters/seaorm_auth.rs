@@ -135,6 +135,24 @@ impl SeaOrmAdminAuth {
         Ok(())
     }
 
+    /// Returns all role names (without the `role:` prefix) currently in the Casbin policy store.
+    pub fn list_roles(&self) -> Vec<String> {
+        use casbin::MgmtApi;
+        let enforcer = match self.enforcer.try_read() {
+            Ok(e) => e,
+            Err(_) => return vec![],
+        };
+        let mut roles: Vec<String> = enforcer
+            .get_all_subjects()
+            .into_iter()
+            .filter(|s| s.starts_with("role:"))
+            .map(|s| s.strip_prefix("role:").unwrap_or(&s).to_string())
+            .collect();
+        roles.sort();
+        roles.dedup();
+        roles
+    }
+
     /// Get the assigned role for a user ("admin" or "viewer"), or None if superuser/unassigned.
     /// Strips the internal `role:` prefix before returning.
     pub fn get_user_role(&self, username: &str) -> Option<String> {

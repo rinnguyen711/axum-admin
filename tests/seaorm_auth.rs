@@ -204,6 +204,19 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn list_roles_returns_seeded_roles() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+        auth.seed_roles(&["posts".to_string(), "tags".to_string()]).await.unwrap();
+
+        let roles = auth.list_roles();
+        assert!(roles.contains(&"admin".to_string()), "expected 'admin' role");
+        assert!(roles.contains(&"viewer".to_string()), "expected 'viewer' role");
+    }
+
+    #[tokio::test]
     async fn change_password_page_returns_200() {
         use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
         use axum_test::{TestServer, TestServerConfig};
