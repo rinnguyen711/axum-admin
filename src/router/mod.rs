@@ -76,6 +76,11 @@ impl AdminApp {
                 .route("/admin/users/:id/", post(users::user_edit_submit))
                 .route("/admin/users/:id/delete", delete(users::user_delete))
                 .route("/admin/roles/", get(roles::role_list))
+                .route("/admin/roles/new", get(roles::role_create_form))
+                .route("/admin/roles/new", post(roles::role_create_submit))
+                .route("/admin/roles/:role/", get(roles::role_edit_form))
+                .route("/admin/roles/:role/", post(roles::role_edit_submit))
+                .route("/admin/roles/:role/delete", delete(roles::role_delete))
                 .route("/admin/:entity", get(|Path(e): Path<String>| async move {
                     Redirect::permanent(&format!("/admin/{}/", e))
                 }))
