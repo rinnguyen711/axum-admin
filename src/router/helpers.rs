@@ -370,6 +370,38 @@ pub(super) async fn save_m2m(
     }
 }
 
+#[derive(serde::Serialize)]
+pub(super) struct ForbiddenContext {
+    pub admin_title: String,
+    pub admin_icon: String,
+    pub nav: Vec<NavItem>,
+    pub current_entity: String,
+    pub show_auth_nav: bool,
+    pub flash_success: Option<String>,
+    pub flash_error: Option<String>,
+}
+
+#[cfg(feature = "seaorm")]
+pub(super) async fn render_forbidden(
+    state: &std::sync::Arc<crate::app::AdminAppState>,
+    user: &crate::auth::AdminUser,
+    current_entity: &str,
+) -> axum::response::Response {
+    use axum::response::{Html, IntoResponse};
+    use axum::http::StatusCode;
+    let nav = build_nav(state, current_entity, user, state.enforcer.as_ref()).await;
+    let ctx = ForbiddenContext {
+        admin_title: state.title.clone(),
+        admin_icon: state.icon.clone(),
+        nav,
+        current_entity: current_entity.to_string(),
+        show_auth_nav: state.show_auth_nav,
+        flash_success: None,
+        flash_error: None,
+    };
+    (StatusCode::FORBIDDEN, Html(state.renderer.render("forbidden.html", ctx))).into_response()
+}
+
 /// Run all synchronous validators on the submitted data.
 /// Returns a map of field_name -> first error message. Empty = no errors.
 pub(super) fn validate_fields(

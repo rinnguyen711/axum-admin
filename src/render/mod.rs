@@ -32,6 +32,7 @@ impl AdminRenderer {
         env.add_template_owned("roles.html", include_str!("../../templates/roles.html").to_string()).unwrap();
         env.add_template_owned("role_form.html", include_str!("../../templates/role_form.html").to_string()).unwrap();
         env.add_template_owned("role_edit_form.html", include_str!("../../templates/role_edit_form.html").to_string()).unwrap();
+        env.add_template_owned("forbidden.html", include_str!("../../templates/forbidden.html").to_string()).unwrap();
 
         // Dev overrides — applied after defaults so they take precedence
         for (name, content) in overrides {
