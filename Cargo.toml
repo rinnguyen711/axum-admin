@@ -1,6 +1,6 @@
 [package]
 name = "axum-admin"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A modern admin dashboard framework for Axum"
 license = "MIT"
@@ -26,7 +26,7 @@ regex = "1"
 
 [dev-dependencies]
 axum-test = "14"
-sea-orm = { version = "1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sea-orm = { version = "1", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"] }
 sea-orm-migration = { version = "1" }
 tempfile = "3"
 chrono = { version = "0.4", features = ["serde"] }
@@ -36,7 +36,7 @@ seaorm = ["dep:sea-orm", "dep:casbin", "dep:sea-orm-adapter", "dep:argon2", "dep
 
 [dependencies.sea-orm]
 version = "1"
-features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"]
+features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"]
 optional = true
 
 [dependencies.casbin]
