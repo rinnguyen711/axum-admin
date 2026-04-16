@@ -169,10 +169,7 @@ pub(super) async fn user_create_submit(
         match seaorm.create_user(&form.username, &form.password, is_superuser).await {
             Ok(_) => {
                 if !is_superuser {
-                    let role = match form.role.as_deref() {
-                        Some("admin") => "admin",
-                        _ => "viewer",
-                    };
+                    let role = form.role.as_deref().unwrap_or("viewer");
                     let _ = seaorm.assign_role(&form.username, role).await;
                 }
                 return (StatusCode::FOUND, [(LOCATION, "/admin/users/")]).into_response();

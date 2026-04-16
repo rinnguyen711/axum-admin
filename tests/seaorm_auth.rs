@@ -378,9 +378,15 @@ mod tests {
         let server = TestServer::new_with_config(app, config).unwrap();
         server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
+        let form_page = server.get("/admin/roles/new").await;
+        let body = form_page.text();
+        let csrf_start = body.find("name=\"csrf_token\" value=\"").unwrap() + 25;
+        let csrf_end = body[csrf_start..].find('"').unwrap() + csrf_start;
+        let csrf_token = body[csrf_start..csrf_end].to_string();
+
         let resp = server
             .post("/admin/roles/new")
-            .form(&[("name", "editor"), ("perms", "posts.view"), ("perms", "posts.edit")])
+            .form(&[("name", "editor"), ("perms", "posts.view"), ("perms", "posts.edit"), ("csrf_token", &csrf_token)])
             .await;
         assert_eq!(resp.status_code(), StatusCode::FOUND);
     }

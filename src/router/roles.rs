@@ -10,7 +10,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use tower_cookies::Cookies;
 
-use super::csrf::get_or_create_csrf;
+use super::csrf::{get_or_create_csrf, validate_csrf};
 use super::helpers::build_nav;
 
 #[derive(Serialize)]
@@ -167,6 +167,10 @@ pub(super) async fn role_create_submit(
         let pairs: Vec<(String, String)> = form_urlencoded::parse(&body)
             .map(|(k, v)| (k.into_owned(), v.into_owned()))
             .collect();
+        let csrf_form = pairs.iter().find(|(k, _)| k == "csrf_token").map(|(_, v)| v.as_str());
+        if !validate_csrf(&cookies, csrf_form) {
+            return (StatusCode::FORBIDDEN, "Invalid CSRF token").into_response();
+        }
         let role_name_raw = pairs.iter()
             .find(|(k, _)| k == "name")
             .map(|(_, v)| v.clone())
@@ -267,9 +271,16 @@ pub(super) async fn role_edit_submit(
         if !user.is_superuser {
             return (StatusCode::FORBIDDEN, "Forbidden").into_response();
         }
-        let perm_strings: Vec<String> = form_urlencoded::parse(&body)
+        let pairs: Vec<(String, String)> = form_urlencoded::parse(&body)
+            .map(|(k, v)| (k.into_owned(), v.into_owned()))
+            .collect();
+        let csrf_form = pairs.iter().find(|(k, _)| k == "csrf_token").map(|(_, v)| v.as_str());
+        if !validate_csrf(&cookies, csrf_form) {
+            return (StatusCode::FORBIDDEN, "Invalid CSRF token").into_response();
+        }
+        let perm_strings: Vec<String> = pairs.iter()
             .filter(|(k, _)| k == "perms")
-            .map(|(_, v)| v.into_owned())
+            .map(|(_, v)| v.clone())
             .collect();
         let permissions: Vec<(String, String)> = perm_strings
             .iter()
