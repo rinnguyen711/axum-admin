@@ -18,8 +18,8 @@ use tower_cookies::Cookies;
 use super::csrf::{get_or_create_csrf, validate_csrf};
 use super::helpers::{
     build_nav, entity_refs, extract_m2m_data, fields_to_context, filter_fields_to_context,
-    parse_filters, parse_multipart, render_form_error, resolve_filter_fields, row_to_context,
-    save_m2m, validate_fields, validate_fields_async, value_to_string,
+    parse_filters, parse_multipart, render_forbidden, render_form_error, resolve_filter_fields,
+    row_to_context, save_m2m, validate_fields, validate_fields_async, value_to_string,
 };
 
 #[derive(Deserialize, Default)]
@@ -78,7 +78,7 @@ pub(super) async fn entity_list(
 
     // Permission check: view is required to list
     if !check_entity_permission(&user, &entity_name, "view", &entity.permissions.view, state.enforcer.as_ref()).await {
-        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        return render_forbidden(&state, &user, &entity_name).await;
     }
 
     let can_create = check_entity_permission(&user, &entity_name, "create", &entity.permissions.create, state.enforcer.as_ref()).await;
@@ -230,7 +230,7 @@ pub(super) async fn entity_create_form(
     };
 
     if !check_entity_permission(&user, &entity_name, "create", &entity.permissions.create, state.enforcer.as_ref()).await {
-        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        return render_forbidden(&state, &user, &entity_name).await;
     }
 
     let csrf_token = get_or_create_csrf(&cookies);
@@ -356,7 +356,7 @@ pub(super) async fn entity_create_submit(
     };
 
     if !check_entity_permission(&user, &entity_name, "create", &entity.permissions.create, state.enforcer.as_ref()).await {
-        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        return render_forbidden(&state, &user, &entity_name).await;
     }
     let adapter = match &entity.adapter {
         Some(a) => a,
@@ -461,7 +461,7 @@ pub(super) async fn entity_edit_form(
 
     // Edit form: requires view permission to open, edit permission to save
     if !check_entity_permission(&user, &entity_name, "view", &entity.permissions.view, state.enforcer.as_ref()).await {
-        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        return render_forbidden(&state, &user, &entity_name).await;
     }
     let can_save = check_entity_permission(&user, &entity_name, "edit", &entity.permissions.edit, state.enforcer.as_ref()).await;
 
@@ -534,7 +534,7 @@ pub(super) async fn entity_edit_submit(
     };
 
     if !check_entity_permission(&user, &entity_name, "edit", &entity.permissions.edit, state.enforcer.as_ref()).await {
-        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        return render_forbidden(&state, &user, &entity_name).await;
     }
     let adapter = match &entity.adapter {
         Some(a) => a,
@@ -639,7 +639,7 @@ pub(super) async fn entity_delete(
     };
 
     if !check_entity_permission(&user, &entity_name, "delete", &entity.permissions.delete, state.enforcer.as_ref()).await {
-        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        return render_forbidden(&state, &user, &entity_name).await;
     }
 
     let adapter = match &entity.adapter {
@@ -683,7 +683,7 @@ pub(super) async fn entity_action(
     };
 
     if !check_entity_permission(&user, &entity_name, "edit", &entity.permissions.edit, state.enforcer.as_ref()).await {
-        return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+        return render_forbidden(&state, &user, &entity_name).await;
     }
 
     // Parse repeated form fields manually (serde_urlencoded doesn't support Vec for repeated keys)
