@@ -378,11 +378,9 @@ mod tests {
         let server = TestServer::new_with_config(app, config).unwrap();
         server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
 
-        // Note: axum's Form extractor with serde_urlencoded does not support
-        // repeated keys for Vec<String> fields; omitting perms still redirects on success.
         let resp = server
             .post("/admin/roles/new")
-            .form(&[("name", "editor")])
+            .form(&[("name", "editor"), ("perms", "posts.view"), ("perms", "posts.edit")])
             .await;
         assert_eq!(resp.status_code(), StatusCode::FOUND);
     }
