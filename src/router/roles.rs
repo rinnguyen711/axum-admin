@@ -64,13 +64,14 @@ pub(super) async fn role_list(
         if !user.is_superuser {
             return (StatusCode::FORBIDDEN, "Forbidden").into_response();
         }
-        return role_list_with_flash(&state, None, None).await;
+        return role_list_with_flash(&state, &user, None, None).await;
     }
     (StatusCode::NOT_FOUND, "Role management requires seaorm feature").into_response()
 }
 
 pub(super) async fn role_list_with_flash(
     state: &Arc<AdminAppState>,
+    user: &crate::auth::AdminUser,
     flash_error: Option<String>,
     flash_success: Option<String>,
 ) -> Response {
@@ -92,7 +93,7 @@ pub(super) async fn role_list_with_flash(
         let ctx = RoleListContext {
             admin_title: state.title.clone(),
             admin_icon: state.icon.clone(),
-            nav: build_nav(state, ""),
+            nav: build_nav(state, "", user, state.enforcer.as_ref()).await,
             current_entity: "__roles".to_string(),
             show_auth_nav: state.show_auth_nav,
             roles: rows,
@@ -140,7 +141,7 @@ pub(super) async fn role_create_form(
         let ctx = RoleFormContext {
             admin_title: state.title.clone(),
             admin_icon: state.icon.clone(),
-            nav: build_nav(&state, ""),
+            nav: build_nav(&state, "", &user, state.enforcer.as_ref()).await,
             current_entity: "__roles".to_string(),
             show_auth_nav: state.show_auth_nav,
             role_name: None,
@@ -185,7 +186,7 @@ pub(super) async fn role_create_submit(
             let ctx = RoleFormContext {
                 admin_title: state.title.clone(),
                 admin_icon: state.icon.clone(),
-                nav: build_nav(&state, ""),
+                nav: build_nav(&state, "", &user, state.enforcer.as_ref()).await,
                 current_entity: "__roles".to_string(),
                 show_auth_nav: state.show_auth_nav,
                 role_name: None,
@@ -215,7 +216,7 @@ pub(super) async fn role_create_submit(
                 let ctx = RoleFormContext {
                     admin_title: state.title.clone(),
                     admin_icon: state.icon.clone(),
-                    nav: build_nav(&state, ""),
+                    nav: build_nav(&state, "", &user, state.enforcer.as_ref()).await,
                     current_entity: "__roles".to_string(),
                     show_auth_nav: state.show_auth_nav,
                     role_name: Some(name),
@@ -246,7 +247,7 @@ pub(super) async fn role_edit_form(
         let ctx = RoleFormContext {
             admin_title: state.title.clone(),
             admin_icon: state.icon.clone(),
-            nav: build_nav(&state, ""),
+            nav: build_nav(&state, "", &user, state.enforcer.as_ref()).await,
             current_entity: "__roles".to_string(),
             show_auth_nav: state.show_auth_nav,
             role_name: Some(role),
@@ -300,7 +301,7 @@ pub(super) async fn role_edit_submit(
                 let ctx = RoleFormContext {
                     admin_title: state.title.clone(),
                     admin_icon: state.icon.clone(),
-                    nav: build_nav(&state, ""),
+                    nav: build_nav(&state, "", &user, state.enforcer.as_ref()).await,
                     current_entity: "__roles".to_string(),
                     show_auth_nav: state.show_auth_nav,
                     role_name: Some(role),
@@ -327,10 +328,10 @@ pub(super) async fn role_delete(
         }
         match seaorm.delete_role(&role).await {
             Ok(_) => {
-                return role_list_with_flash(&state, None, Some(format!("Role '{}' deleted.", role))).await;
+                return role_list_with_flash(&state, &user, None, Some(format!("Role '{}' deleted.", role))).await;
             }
             Err(e) => {
-                return role_list_with_flash(&state, Some(e.to_string()), None).await;
+                return role_list_with_flash(&state, &user, Some(e.to_string()), None).await;
             }
         }
     }

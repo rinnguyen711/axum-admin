@@ -97,8 +97,9 @@ pub(super) struct ChangePasswordForm {
     csrf_token: Option<String>,
 }
 
-fn make_change_password_ctx(
+async fn make_change_password_ctx(
     state: &Arc<AdminAppState>,
+    user: &AdminUser,
     csrf_token: &str,
     error: Option<String>,
     success: Option<String>,
@@ -106,7 +107,15 @@ fn make_change_password_ctx(
     ChangePasswordContext {
         admin_title: state.title.clone(),
         admin_icon: state.icon.clone(),
-        nav: super::helpers::build_nav(state, ""),
+        nav: super::helpers::build_nav(
+            state,
+            "",
+            user,
+            #[cfg(feature = "seaorm")]
+            state.enforcer.as_ref(),
+            #[cfg(not(feature = "seaorm"))]
+            None,
+        ).await,
         current_entity: String::new(),
         csrf_token: csrf_token.to_string(),
         error,
@@ -119,10 +128,10 @@ fn make_change_password_ctx(
 pub(super) async fn change_password_page(
     cookies: Cookies,
     Extension(state): Extension<Arc<AdminAppState>>,
-    Extension(_user): Extension<AdminUser>,
+    Extension(user): Extension<AdminUser>,
 ) -> Html<String> {
     let csrf_token = get_or_create_csrf(&cookies);
-    let ctx = make_change_password_ctx(&state, &csrf_token, None, None);
+    let ctx = make_change_password_ctx(&state, &user, &csrf_token, None, None).await;
     Html(state.renderer.render("change_password.html", ctx))
 }
 
@@ -137,13 +146,13 @@ pub(super) async fn change_password_submit(
     if form.new_password != form.confirm_password {
         return Html(state.renderer.render(
             "change_password.html",
-            make_change_password_ctx(&state, &csrf_token, Some("New passwords do not match.".into()), None),
+            make_change_password_ctx(&state, &user, &csrf_token, Some("New passwords do not match.".into()), None).await,
         ));
     }
     if form.new_password.len() < 8 {
         return Html(state.renderer.render(
             "change_password.html",
-            make_change_password_ctx(&state, &csrf_token, Some("New password must be at least 8 characters.".into()), None),
+            make_change_password_ctx(&state, &user, &csrf_token, Some("New password must be at least 8 characters.".into()), None).await,
         ));
     }
 
@@ -152,24 +161,21 @@ pub(super) async fn change_password_submit(
         return match seaorm.change_password(&user.username, &form.current_password, &form.new_password).await {
             Ok(_) => Html(state.renderer.render(
                 "change_password.html",
-                make_change_password_ctx(&state, &csrf_token, None, Some("Password updated successfully.".into())),
+                make_change_password_ctx(&state, &user, &csrf_token, None, Some("Password updated successfully.".into())).await,
             )),
             Err(crate::error::AdminError::Unauthorized) => Html(state.renderer.render(
                 "change_password.html",
-                make_change_password_ctx(&state, &csrf_token, Some("Current password is incorrect.".into()), None),
+                make_change_password_ctx(&state, &user, &csrf_token, Some("Current password is incorrect.".into()), None).await,
             )),
             Err(e) => Html(state.renderer.render(
                 "change_password.html",
-                make_change_password_ctx(&state, &csrf_token, Some(e.to_string()), None),
+                make_change_password_ctx(&state, &user, &csrf_token, Some(e.to_string()), None).await,
             )),
         };
     }
 
-    #[cfg(not(feature = "seaorm"))]
-    let _ = user;
-
     Html(state.renderer.render(
         "change_password.html",
-        make_change_password_ctx(&state, &csrf_token, Some("Password change is not supported by the current auth backend.".into()), None),
+        make_change_password_ctx(&state, &user, &csrf_token, Some("Password change is not supported by the current auth backend.".into()), None).await,
     ))
 }

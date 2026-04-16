@@ -97,7 +97,7 @@ pub(super) async fn user_list(
         let ctx = UserListContext {
             admin_title: state.title.clone(),
             admin_icon: state.icon.clone(),
-            nav: build_nav(&state, ""),
+            nav: build_nav(&state, "", &user, state.enforcer.as_ref()).await,
             current_entity: "__users".to_string(),
             users: rows,
             flash_success: None,
@@ -133,7 +133,7 @@ pub(super) async fn user_create_form(
         let ctx = UserFormContext {
             admin_title: state.title.clone(),
             admin_icon: state.icon.clone(),
-            nav: build_nav(&state, ""),
+            nav: build_nav(&state, "", &user, state.enforcer.as_ref()).await,
             current_entity: "__users".to_string(),
             csrf_token,
             error: None,
@@ -179,7 +179,7 @@ pub(super) async fn user_create_submit(
                 let ctx = UserFormContext {
                     admin_title: state.title.clone(),
                     admin_icon: state.icon.clone(),
-                    nav: build_nav(&state, ""),
+                    nav: build_nav(&state, "", &user, state.enforcer.as_ref()).await,
                     current_entity: "__users".to_string(),
                     csrf_token,
                     error: Some(e.to_string()),
