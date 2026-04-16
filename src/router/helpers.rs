@@ -30,11 +30,27 @@ pub(super) fn row_to_context(row: &HashMap<String, Value>, pk_field: &str) -> Ro
 /// Build the sidebar nav structure: ungrouped entities are top-level `NavItem::Entity`;
 /// grouped entities are collected into `NavItem::Group` in first-seen order.
 /// `current_entity` is used to mark the active group as open.
-pub(super) fn build_nav(state: &AdminAppState, current_entity: &str) -> Vec<NavItem> {
+/// Non-superusers only see entities they have `view` permission on (seaorm feature only).
+pub(super) async fn build_nav(
+    state: &AdminAppState,
+    current_entity: &str,
+    user: &crate::auth::AdminUser,
+    #[cfg(feature = "seaorm")]
+    enforcer: Option<&std::sync::Arc<tokio::sync::RwLock<casbin::Enforcer>>>,
+    #[cfg(not(feature = "seaorm"))]
+    _enforcer: Option<&()>,
+) -> Vec<NavItem> {
     let mut nav: Vec<NavItem> = Vec::new();
     let mut group_indices: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
 
     for e in &state.entities {
+        #[cfg(feature = "seaorm")]
+        if !crate::auth::check_entity_permission(user, &e.entity_name, "view", &e.permissions.view, enforcer).await {
+            continue;
+        }
+        #[cfg(not(feature = "seaorm"))]
+        let _ = user;
+
         let entity_ref = EntityRef {
             name: e.entity_name.clone(),
             label: e.label.clone(),
@@ -66,17 +82,31 @@ pub(super) fn build_nav(state: &AdminAppState, current_entity: &str) -> Vec<NavI
     nav
 }
 
-pub(super) fn entity_refs(state: &AdminAppState) -> Vec<EntityRef> {
-    state
-        .entities
-        .iter()
-        .map(|e| EntityRef {
+pub(super) async fn entity_refs(
+    state: &AdminAppState,
+    user: &crate::auth::AdminUser,
+    #[cfg(feature = "seaorm")]
+    enforcer: Option<&std::sync::Arc<tokio::sync::RwLock<casbin::Enforcer>>>,
+    #[cfg(not(feature = "seaorm"))]
+    _enforcer: Option<&()>,
+) -> Vec<EntityRef> {
+    let mut result = Vec::new();
+    for e in &state.entities {
+        #[cfg(feature = "seaorm")]
+        if !crate::auth::check_entity_permission(user, &e.entity_name, "view", &e.permissions.view, enforcer).await {
+            continue;
+        }
+        #[cfg(not(feature = "seaorm"))]
+        let _ = user;
+
+        result.push(EntityRef {
             name: e.entity_name.clone(),
             label: e.label.clone(),
             icon: e.icon.clone(),
             group: e.group.clone(),
-        })
-        .collect()
+        });
+    }
+    result
 }
 
 pub(super) fn parse_filters(raw_query: Option<&str>) -> HashMap<String, Value> {
@@ -397,6 +427,11 @@ pub(super) async fn render_form_error(
     is_create: bool,
     csrf_token: String,
     can_save: bool,
+    user: &crate::auth::AdminUser,
+    #[cfg(feature = "seaorm")]
+    enforcer: Option<&std::sync::Arc<tokio::sync::RwLock<casbin::Enforcer>>>,
+    #[cfg(not(feature = "seaorm"))]
+    enforcer: Option<&()>,
 ) -> Html<String> {
     let errors = match err {
         crate::error::AdminError::ValidationError(e) => e,
@@ -410,8 +445,8 @@ pub(super) async fn render_form_error(
     let ctx = FormContext {
         admin_title: state.title.clone(),
         admin_icon: state.icon.clone(),
-        entities: entity_refs(state),
-        nav: build_nav(state, entity_name),
+        entities: entity_refs(state, user, enforcer).await,
+        nav: build_nav(state, entity_name, user, enforcer).await,
         current_entity: entity_name.to_string(),
         entity_name: entity_name.to_string(),
         entity_label: entity.label.clone(),
