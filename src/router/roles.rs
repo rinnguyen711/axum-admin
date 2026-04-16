@@ -1,11 +1,12 @@
 use crate::app::AdminAppState;
 use crate::auth::AdminUser;
 use axum::{
-    extract::{Extension, Form, Path},
+    body::Bytes,
+    extract::{Extension, Path},
     http::{header::LOCATION, StatusCode},
     response::{Html, IntoResponse, Response},
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 use tower_cookies::Cookies;
 
@@ -53,14 +54,6 @@ struct RoleFormContext {
     error: Option<String>,
 }
 
-#[derive(Deserialize)]
-pub(super) struct RoleForm {
-    name: Option<String>,
-    #[serde(default)]
-    perms: Vec<String>, // "entity.action" strings
-    #[allow(dead_code)]
-    csrf_token: Option<String>,
-}
 
 pub(super) async fn role_list(
     Extension(state): Extension<Arc<AdminAppState>>,
@@ -164,33 +157,43 @@ pub(super) async fn role_create_submit(
     cookies: Cookies,
     Extension(state): Extension<Arc<AdminAppState>>,
     Extension(user): Extension<AdminUser>,
-    Form(form): Form<RoleForm>,
+    body: Bytes,
 ) -> Response {
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
         if !user.is_superuser {
             return (StatusCode::FORBIDDEN, "Forbidden").into_response();
         }
-        let name = match form.name.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-            Some(n) => n.to_string(),
-            None => {
-                let perms = build_perm_rows(&state, &[]);
-                let ctx = RoleFormContext {
-                    admin_title: state.title.clone(),
-                    admin_icon: state.icon.clone(),
-                    nav: build_nav(&state, ""),
-                    current_entity: "__roles".to_string(),
-                    show_auth_nav: state.show_auth_nav,
-                    role_name: None,
-                    perms,
-                    csrf_token: get_or_create_csrf(&cookies),
-                    error: Some("Role name is required".to_string()),
-                };
-                return Html(state.renderer.render("role_form.html", ctx)).into_response();
-            }
+        let pairs: Vec<(String, String)> = form_urlencoded::parse(&body)
+            .map(|(k, v)| (k.into_owned(), v.into_owned()))
+            .collect();
+        let role_name_raw = pairs.iter()
+            .find(|(k, _)| k == "name")
+            .map(|(_, v)| v.clone())
+            .unwrap_or_default();
+        let perm_strings: Vec<String> = pairs.iter()
+            .filter(|(k, _)| k == "perms")
+            .map(|(_, v)| v.clone())
+            .collect();
+        let trimmed = role_name_raw.trim();
+        let name = if trimmed.is_empty() {
+            let perms = build_perm_rows(&state, &[]);
+            let ctx = RoleFormContext {
+                admin_title: state.title.clone(),
+                admin_icon: state.icon.clone(),
+                nav: build_nav(&state, ""),
+                current_entity: "__roles".to_string(),
+                show_auth_nav: state.show_auth_nav,
+                role_name: None,
+                perms,
+                csrf_token: get_or_create_csrf(&cookies),
+                error: Some("Role name is required".to_string()),
+            };
+            return Html(state.renderer.render("role_form.html", ctx)).into_response();
+        } else {
+            trimmed.to_string()
         };
-        let permissions: Vec<(String, String)> = form
-            .perms
+        let permissions: Vec<(String, String)> = perm_strings
             .iter()
             .filter_map(|p| {
                 let mut parts = p.splitn(2, '.');
@@ -257,15 +260,18 @@ pub(super) async fn role_edit_submit(
     Path(role): Path<String>,
     Extension(state): Extension<Arc<AdminAppState>>,
     Extension(user): Extension<AdminUser>,
-    Form(form): Form<RoleForm>,
+    body: Bytes,
 ) -> Response {
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
         if !user.is_superuser {
             return (StatusCode::FORBIDDEN, "Forbidden").into_response();
         }
-        let permissions: Vec<(String, String)> = form
-            .perms
+        let perm_strings: Vec<String> = form_urlencoded::parse(&body)
+            .filter(|(k, _)| k == "perms")
+            .map(|(_, v)| v.into_owned())
+            .collect();
+        let permissions: Vec<(String, String)> = perm_strings
             .iter()
             .filter_map(|p| {
                 let mut parts = p.splitn(2, '.');
