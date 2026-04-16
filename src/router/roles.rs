@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tower_cookies::Cookies;
 
 use super::csrf::{get_or_create_csrf, validate_csrf};
-use super::helpers::build_nav;
+use super::helpers::{build_nav, render_forbidden};
 
 #[derive(Serialize)]
 struct RoleRow {
@@ -62,7 +62,7 @@ pub(super) async fn role_list(
     #[cfg(feature = "seaorm")]
     if state.seaorm_auth.is_some() {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__roles").await;
         }
         return role_list_with_flash(&state, &user, None, None).await;
     }
@@ -135,7 +135,7 @@ pub(super) async fn role_create_form(
     #[cfg(feature = "seaorm")]
     if let Some(ref _seaorm) = state.seaorm_auth {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__roles").await;
         }
         let perms = build_perm_rows(&state, &[]);
         let ctx = RoleFormContext {
@@ -163,7 +163,7 @@ pub(super) async fn role_create_submit(
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__roles").await;
         }
         let pairs: Vec<(String, String)> = form_urlencoded::parse(&body)
             .map(|(k, v)| (k.into_owned(), v.into_owned()))
@@ -240,7 +240,7 @@ pub(super) async fn role_edit_form(
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__roles").await;
         }
         let current_perms = seaorm.get_role_permissions(&role);
         let perms = build_perm_rows(&state, &current_perms);
@@ -270,7 +270,7 @@ pub(super) async fn role_edit_submit(
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__roles").await;
         }
         let pairs: Vec<(String, String)> = form_urlencoded::parse(&body)
             .map(|(k, v)| (k.into_owned(), v.into_owned()))
@@ -324,7 +324,7 @@ pub(super) async fn role_delete(
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__roles").await;
         }
         match seaorm.delete_role(&role).await {
             Ok(_) => {

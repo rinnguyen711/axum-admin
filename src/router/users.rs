@@ -13,7 +13,7 @@ use std::sync::Arc;
 use tower_cookies::Cookies;
 
 use super::csrf::get_or_create_csrf;
-use super::helpers::build_nav;
+use super::helpers::{build_nav, render_forbidden};
 
 #[derive(Serialize)]
 struct UserRow {
@@ -71,7 +71,7 @@ pub(super) async fn user_list(
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__users").await;
         }
         use crate::adapters::seaorm_auth::AuthUserEntity;
         use sea_orm::EntityTrait;
@@ -126,7 +126,7 @@ pub(super) async fn user_create_form(
     #[cfg(feature = "seaorm")]
     if state.seaorm_auth.is_some() {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__users").await;
         }
         let csrf_token = get_or_create_csrf(&cookies);
         let seaorm = state.seaorm_auth.as_ref().unwrap();
@@ -163,7 +163,7 @@ pub(super) async fn user_create_submit(
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__users").await;
         }
         let is_superuser = form.is_superuser.as_deref() == Some("on");
         match seaorm.create_user(&form.username, &form.password, is_superuser).await {
@@ -211,7 +211,7 @@ pub(super) async fn user_delete(
     #[cfg(feature = "seaorm")]
     if let Some(ref seaorm) = state.seaorm_auth {
         if !user.is_superuser {
-            return (StatusCode::FORBIDDEN, "Forbidden").into_response();
+            return render_forbidden(&state, &user, "__users").await;
         }
         use crate::adapters::seaorm_auth::AuthUserEntity;
         use sea_orm::EntityTrait;
