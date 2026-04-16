@@ -48,6 +48,7 @@ struct UserFormContext {
     flash_success: Option<String>,
     flash_error: Option<String>,
     show_auth_nav: bool,
+    roles: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -128,6 +129,7 @@ pub(super) async fn user_create_form(
             return (StatusCode::FORBIDDEN, "Forbidden").into_response();
         }
         let csrf_token = get_or_create_csrf(&cookies);
+        let seaorm = state.seaorm_auth.as_ref().unwrap();
         let ctx = UserFormContext {
             admin_title: state.title.clone(),
             admin_icon: state.icon.clone(),
@@ -138,6 +140,7 @@ pub(super) async fn user_create_form(
             flash_success: None,
             flash_error: None,
             show_auth_nav: state.show_auth_nav,
+            roles: seaorm.list_roles(),
         };
         return Html(state.renderer.render("user_form.html", ctx)).into_response();
     }
@@ -186,6 +189,7 @@ pub(super) async fn user_create_submit(
                     flash_success: None,
                     flash_error: None,
                     show_auth_nav: state.show_auth_nav,
+                    roles: seaorm.list_roles(),
                 };
                 return Html(state.renderer.render("user_form.html", ctx)).into_response();
             }
