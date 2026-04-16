@@ -30,7 +30,10 @@ pub(super) struct ListQuery {
     pub(super) order_dir: Option<String>,
 }
 
-pub(super) async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) -> Html<String> {
+pub(super) async fn admin_home(
+    Extension(state): Extension<Arc<AdminAppState>>,
+    Extension(user): Extension<AdminUser>,
+) -> Html<String> {
     use crate::render::context::EntityRef;
     use serde::Serialize;
     #[derive(Serialize)]
@@ -47,8 +50,8 @@ pub(super) async fn admin_home(Extension(state): Extension<Arc<AdminAppState>>) 
     let ctx = HomeContext {
         admin_title: state.title.clone(),
         admin_icon: state.icon.clone(),
-        entities: entity_refs(&state),
-        nav: build_nav(&state, ""),
+        entities: entity_refs(&state, &user, state.enforcer.as_ref()).await,
+        nav: build_nav(&state, "", &user, state.enforcer.as_ref()).await,
         current_entity: String::new(),
         flash_success: None,
         flash_error: None,
@@ -170,8 +173,8 @@ pub(super) async fn entity_list(
     let ctx = ListContext {
         admin_title: state.title.clone(),
         admin_icon: state.icon.clone(),
-        entities: entity_refs(&state),
-        nav: build_nav(&state, &entity_name),
+        entities: entity_refs(&state, &user, state.enforcer.as_ref()).await,
+        nav: build_nav(&state, &entity_name, &user, state.enforcer.as_ref()).await,
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
@@ -234,8 +237,8 @@ pub(super) async fn entity_create_form(
     let ctx = FormContext {
         admin_title: state.title.clone(),
         admin_icon: state.icon.clone(),
-        entities: entity_refs(&state),
-        nav: build_nav(&state, &entity_name),
+        entities: entity_refs(&state, &user, state.enforcer.as_ref()).await,
+        nav: build_nav(&state, &entity_name, &user, state.enforcer.as_ref()).await,
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
@@ -397,12 +400,14 @@ pub(super) async fn entity_create_submit(
         return render_form_error(
             &state, entity, &entity_name, "",
             data, crate::error::AdminError::ValidationError(field_errors), true, csrf_token, true,
+            &user, state.enforcer.as_ref(),
         ).await.into_response();
     }
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token, true)
+            return render_form_error(&state, entity, &entity_name, "", data, e, true, csrf_token, true,
+                &user, state.enforcer.as_ref())
                 .await.into_response();
         }
     }
@@ -421,8 +426,8 @@ pub(super) async fn entity_create_submit(
             let ctx = FormContext {
                 admin_title: state.title.clone(),
                 admin_icon: state.icon.clone(),
-                entities: entity_refs(&state),
-                nav: build_nav(&state, &entity_name),
+                entities: entity_refs(&state, &user, state.enforcer.as_ref()).await,
+                nav: build_nav(&state, &entity_name, &user, state.enforcer.as_ref()).await,
                 current_entity: entity_name.clone(),
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),
@@ -486,8 +491,8 @@ pub(super) async fn entity_edit_form(
     let ctx = FormContext {
         admin_title: state.title.clone(),
         admin_icon: state.icon.clone(),
-        entities: entity_refs(&state),
-        nav: build_nav(&state, &entity_name),
+        entities: entity_refs(&state, &user, state.enforcer.as_ref()).await,
+        nav: build_nav(&state, &entity_name, &user, state.enforcer.as_ref()).await,
         current_entity: entity_name.clone(),
         entity_name: entity_name.clone(),
         entity_label: entity.label.clone(),
@@ -574,12 +579,14 @@ pub(super) async fn entity_edit_submit(
         return render_form_error(
             &state, entity, &entity_name, &id,
             data, crate::error::AdminError::ValidationError(field_errors), false, csrf_token, true,
+            &user, state.enforcer.as_ref(),
         ).await.into_response();
     }
 
     if let Some(hook) = &entity.before_save {
         if let Err(e) = hook(&mut data) {
-            return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token, true)
+            return render_form_error(&state, entity, &entity_name, &id, data, e, false, csrf_token, true,
+                &user, state.enforcer.as_ref())
                 .await.into_response();
         }
     }
@@ -598,8 +605,8 @@ pub(super) async fn entity_edit_submit(
             let ctx = FormContext {
                 admin_title: state.title.clone(),
                 admin_icon: state.icon.clone(),
-                entities: entity_refs(&state),
-                nav: build_nav(&state, &entity_name),
+                entities: entity_refs(&state, &user, state.enforcer.as_ref()).await,
+                nav: build_nav(&state, &entity_name, &user, state.enforcer.as_ref()).await,
                 current_entity: entity_name.clone(),
                 entity_name: entity_name.clone(),
                 entity_label: entity.label.clone(),
