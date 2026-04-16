@@ -314,6 +314,131 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn roles_list_returns_200() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+        use axum_test::{TestServer, TestServerConfig};
+        use axum::http::StatusCode;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+        auth.ensure_user("admin", "secret").await.unwrap();
+
+        let app = axum_admin::AdminApp::new()
+            .seaorm_auth(auth)
+            .into_router()
+            .await;
+
+        let config = TestServerConfig { save_cookies: true, ..Default::default() };
+        let server = TestServer::new_with_config(app, config).unwrap();
+        server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
+
+        let resp = server.get("/admin/roles/").await;
+        assert_eq!(resp.status_code(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn role_create_form_returns_200() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+        use axum_test::{TestServer, TestServerConfig};
+        use axum::http::StatusCode;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+        auth.ensure_user("admin", "secret").await.unwrap();
+
+        let app = axum_admin::AdminApp::new()
+            .seaorm_auth(auth)
+            .into_router()
+            .await;
+
+        let config = TestServerConfig { save_cookies: true, ..Default::default() };
+        let server = TestServer::new_with_config(app, config).unwrap();
+        server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
+
+        let resp = server.get("/admin/roles/new").await;
+        assert_eq!(resp.status_code(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn role_create_submit_redirects() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+        use axum_test::{TestServer, TestServerConfig};
+        use axum::http::StatusCode;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+        auth.ensure_user("admin", "secret").await.unwrap();
+
+        let app = axum_admin::AdminApp::new()
+            .seaorm_auth(auth)
+            .into_router()
+            .await;
+
+        let config = TestServerConfig { save_cookies: true, ..Default::default() };
+        let server = TestServer::new_with_config(app, config).unwrap();
+        server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
+
+        // Note: axum's Form extractor with serde_urlencoded does not support
+        // repeated keys for Vec<String> fields; omitting perms still redirects on success.
+        let resp = server
+            .post("/admin/roles/new")
+            .form(&[("name", "editor")])
+            .await;
+        assert_eq!(resp.status_code(), StatusCode::FOUND);
+    }
+
+    #[tokio::test]
+    async fn role_edit_form_returns_200() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+        use axum_test::{TestServer, TestServerConfig};
+        use axum::http::StatusCode;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+        auth.ensure_user("admin", "secret").await.unwrap();
+        auth.seed_roles(&["posts".to_string()]).await.unwrap();
+
+        let app = axum_admin::AdminApp::new()
+            .seaorm_auth(auth)
+            .into_router()
+            .await;
+
+        let config = TestServerConfig { save_cookies: true, ..Default::default() };
+        let server = TestServer::new_with_config(app, config).unwrap();
+        server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
+
+        let resp = server.get("/admin/roles/admin/").await;
+        assert_eq!(resp.status_code(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn role_delete_blocked_when_user_assigned() {
+        use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+        use axum_test::{TestServer, TestServerConfig};
+        use axum::http::StatusCode;
+
+        let db = setup_db_with_casbin().await;
+        let auth = SeaOrmAdminAuth::new(db).await.unwrap();
+        auth.ensure_user("admin", "secret").await.unwrap();
+        auth.seed_roles(&["posts".to_string()]).await.unwrap();
+        // admin user is assigned "admin" role by ensure_user
+
+        let app = axum_admin::AdminApp::new()
+            .seaorm_auth(auth)
+            .into_router()
+            .await;
+
+        let config = TestServerConfig { save_cookies: true, ..Default::default() };
+        let server = TestServer::new_with_config(app, config).unwrap();
+        server.post("/admin/login").form(&[("username", "admin"), ("password", "secret")]).await;
+
+        // Delete returns 200 (the roles list page with flash error)
+        let resp = server.delete("/admin/roles/admin/delete").await;
+        assert_eq!(resp.status_code(), StatusCode::OK);
+        assert!(resp.text().contains("Cannot delete"), "expected conflict error in page");
+    }
+
+    #[tokio::test]
     async fn change_password_page_returns_200() {
         use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
         use axum_test::{TestServer, TestServerConfig};
