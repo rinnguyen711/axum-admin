@@ -11,18 +11,19 @@ The `examples/blog/` directory contains a complete working example using Postgre
 
 ```sh
 cd examples/blog
-docker compose up -d        # start PostgreSQL
+docker compose up -d db     # start PostgreSQL
 cargo run                   # run migrations + start server
 ```
 
-Visit `http://localhost:3000/admin` and log in with `admin` / `secret`.
+Visit `http://localhost:3000/admin` and log in with `admin` / `admin`.
 
 ## What's included
 
-- `Post` entity with title, body, and published flag
-- `Category` entity with a many-to-many relationship to posts
+- `Category` entity with id and name fields, searchable by name
+- `Post` entity with title, body, status, a foreign-key to Category, and a many-to-many relationship to Tags; searchable by title and body, filterable by status and category
+- `Tag` entity with id and name fields, searchable by name
+- All three entities grouped under a "Blog" sidebar section
 - SeaORM migrations for the blog tables
-- Full CRUD for both entities
-- RBAC: an `editor` role with read-only access to posts
+- Full CRUD for all entities
 
 See `examples/blog/src/admin.rs` for the full registration code.

@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide gets you from zero to a running admin dashboard in 5 steps.
+This guide gets you from zero to a running admin dashboard in 4 steps.
 
 ## 1. Set the database URL
 
@@ -8,29 +8,18 @@ This guide gets you from zero to a running admin dashboard in 5 steps.
 export DATABASE_URL=postgres://user:password@localhost:5432/myapp
 ```
 
-## 2. Run migrations
+## 2. Create the admin user
 
-axum-admin ships its own migration set (users, sessions, RBAC rules). Apply them at startup:
-
-```rust
-use sea_orm_migration::MigratorTrait;
-use axum_admin::adapters::seaorm::migration::Migrator;
-
-Migrator::up(&db, None).await?;
-```
-
-## 3. Create the admin user
+`SeaOrmAdminAuth::new()` runs migrations automatically, then `ensure_user` seeds the first account (idempotent — safe to call on every startup):
 
 ```rust
-use axum_admin::SeaOrmAdminAuth;
+use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
 
 let auth = SeaOrmAdminAuth::new(db.clone()).await?;
 auth.ensure_user("admin", "secret").await?;
 ```
 
-`ensure_user` is idempotent — safe to call on every startup.
-
-## 4. Register entities and mount the router
+## 3. Register entities and mount the router
 
 ```rust
 use axum_admin::{AdminApp, EntityAdmin, Field};
@@ -38,24 +27,26 @@ use axum_admin::adapters::seaorm::SeaOrmAdapter;
 
 let app = AdminApp::new()
     .title("My App Admin")
-    .auth(auth)
+    .prefix("/admin")
+    .seaorm_auth(auth)
     .register(
         EntityAdmin::new("posts")
             .label("Posts")
-            .adapter(SeaOrmAdapter::<post::Entity>::new(db.clone()))
+            .adapter(Box::new(SeaOrmAdapter::<post::Entity>::new(db.clone())))
             .field(Field::new("title").label("Title"))
             .field(Field::new("body").label("Body").textarea())
     )
-    .into_router("/admin");
+    .into_router()
+    .await;
 
 let router = axum::Router::new().nest("/", app);
 ```
 
-## 5. Start the server
+## 4. Start the server
 
 ```rust
 let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
 axum::serve(listener, router).await?;
 ```
 
-Visit `http://localhost:3000/admin` and log in with the credentials from step 3.
+Visit `http://localhost:3000/admin` and log in with the credentials from step 2.
