@@ -1,0 +1,312 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Custom Actions - axum-admin</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="A modern admin dashboard framework for Axum">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Getting Started</li><li class="chapter-item expanded "><a href="../getting-started/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="../getting-started/quick-start.html"><strong aria-hidden="true">2.</strong> Quick Start</a></li><li class="chapter-item expanded "><a href="../getting-started/blog-example.html"><strong aria-hidden="true">3.</strong> Blog Example</a></li><li class="chapter-item expanded affix "><li class="part-title">Configuration</li><li class="chapter-item expanded "><a href="../configuration/options.html"><strong aria-hidden="true">4.</strong> Options</a></li><li class="chapter-item expanded affix "><li class="part-title">API Reference</li><li class="chapter-item expanded "><a href="../api-reference/admin-app.html"><strong aria-hidden="true">5.</strong> AdminApp</a></li><li class="chapter-item expanded "><a href="../api-reference/entity-admin.html"><strong aria-hidden="true">6.</strong> EntityAdmin</a></li><li class="chapter-item expanded "><a href="../api-reference/fields.html"><strong aria-hidden="true">7.</strong> Fields</a></li><li class="chapter-item expanded "><a href="../api-reference/data-adapter.html"><strong aria-hidden="true">8.</strong> DataAdapter</a></li><li class="chapter-item expanded "><a href="../api-reference/cargo-doc.html"><strong aria-hidden="true">9.</strong> Rustdoc (docs.rs)</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="../guides/authentication.html"><strong aria-hidden="true">10.</strong> Authentication</a></li><li class="chapter-item expanded "><a href="../guides/rbac.html"><strong aria-hidden="true">11.</strong> RBAC</a></li><li class="chapter-item expanded "><a href="../guides/custom-actions.html" class="active"><strong aria-hidden="true">12.</strong> Custom Actions</a></li><li class="chapter-item expanded "><a href="../guides/lifecycle-hooks.html"><strong aria-hidden="true">13.</strong> Lifecycle Hooks</a></li><li class="chapter-item expanded affix "><li class="part-title">Template Customization</li><li class="chapter-item expanded "><a href="../template-customization/overview.html"><strong aria-hidden="true">14.</strong> Overview</a></li><li class="chapter-item expanded "><a href="../template-customization/minijinja-context.html"><strong aria-hidden="true">15.</strong> MiniJinja Context</a></li><li class="chapter-item expanded "><a href="../template-customization/overriding-templates.html"><strong aria-hidden="true">16.</strong> Overriding Templates</a></li><li class="chapter-item expanded affix "><li class="part-title">Examples</li><li class="chapter-item expanded "><a href="../examples/blog-walkthrough.html"><strong aria-hidden="true">17.</strong> Blog Walkthrough</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">axum-admin</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/rinnguyen711/axum-admin" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/rinnguyen711/axum-admin/edit/main/docs/src/src/guides/custom-actions.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="custom-actions"><a class="header" href="#custom-actions">Custom Actions</a></h1>
+<p>Custom actions add buttons to the list view or detail form that trigger arbitrary async logic — sending emails, calling external APIs, bulk-processing records, etc.</p>
+<h2 id="core-types"><a class="header" href="#core-types">Core Types</a></h2>
+<h3 id="actiontarget"><a class="header" href="#actiontarget">ActionTarget</a></h3>
+<p>Where the action button is rendered:</p>
+<pre><code class="language-rust">pub enum ActionTarget {
+    List,    // Bulk action toolbar on the list page (operates on selected rows)
+    Detail,  // Action button on the edit/detail form (operates on a single record)
+}</code></pre>
+<h3 id="actioncontext"><a class="header" href="#actioncontext">ActionContext</a></h3>
+<p>Passed to the handler at invocation time:</p>
+<pre><code class="language-rust">pub struct ActionContext {
+    pub ids: Vec&lt;Value&gt;,                    // Selected record IDs
+    pub params: HashMap&lt;String, String&gt;,    // Query parameters from the request
+}</code></pre>
+<p>For <code>ActionTarget::List</code>, <code>ids</code> contains all selected row IDs. For <code>ActionTarget::Detail</code>, <code>ids</code> contains the single record's ID.</p>
+<h3 id="actionresult"><a class="header" href="#actionresult">ActionResult</a></h3>
+<p>What the handler returns:</p>
+<pre><code class="language-rust">pub enum ActionResult {
+    Success(String),   // Show a success flash message
+    Redirect(String),  // Redirect to the given URL
+    Error(String),     // Show an error flash message
+}</code></pre>
+<h2 id="building-a-custom-action"><a class="header" href="#building-a-custom-action">Building a Custom Action</a></h2>
+<p>Use <code>CustomAction::builder</code> to construct an action:</p>
+<pre><code class="language-rust">pub fn builder(name: &amp;str, label: &amp;str) -&gt; CustomActionBuilder</code></pre>
+<h3 id="builder-methods"><a class="header" href="#builder-methods">Builder Methods</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Signature</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>target</code></td><td><code>.target(ActionTarget)</code></td><td>Where to render the button. Defaults to <code>ActionTarget::List</code>.</td></tr>
+<tr><td><code>confirm</code></td><td><code>.confirm(&amp;str)</code></td><td>Confirmation dialog message shown before running.</td></tr>
+<tr><td><code>icon</code></td><td><code>.icon(&amp;str)</code></td><td>Font Awesome class for the button icon.</td></tr>
+<tr><td><code>class</code></td><td><code>.class(&amp;str)</code></td><td>CSS class(es) for the button element.</td></tr>
+<tr><td><code>handler</code></td><td><code>.handler(F)</code></td><td><strong>Required.</strong> Async function that runs the action. Consumes the builder and returns <code>CustomAction</code>.</td></tr>
+</tbody></table>
+</div>
+<h3 id="handler-signature"><a class="header" href="#handler-signature">handler Signature</a></h3>
+<pre><code class="language-rust">pub fn handler&lt;F, Fut&gt;(self, f: F) -&gt; CustomAction
+where
+    F: Fn(ActionContext) -&gt; Fut + Send + Sync + 'static,
+    Fut: Future&lt;Output = Result&lt;ActionResult, AdminError&gt;&gt; + Send + 'static,</code></pre>
+<p><code>.handler()</code> is the terminal method — it consumes the builder and produces the final <code>CustomAction</code>.</p>
+<h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
+<h3 id="list-action-bulk"><a class="header" href="#list-action-bulk">List Action (Bulk)</a></h3>
+<pre><code class="language-rust">use axum_admin::entity::{CustomAction, ActionTarget, ActionContext, ActionResult};
+
+let publish = CustomAction::builder("publish", "Publish Selected")
+    .target(ActionTarget::List)
+    .confirm("Publish all selected posts?")
+    .icon("fa-solid fa-globe")
+    .handler(|ctx: ActionContext| async move {
+        for id in &amp;ctx.ids {
+            // publish logic...
+        }
+        Ok(ActionResult::Success(format!("Published {} posts", ctx.ids.len())))
+    });</code></pre>
+<h3 id="detail-action-single-record"><a class="header" href="#detail-action-single-record">Detail Action (Single Record)</a></h3>
+<pre><code class="language-rust">let send_email = CustomAction::builder("send_welcome", "Send Welcome Email")
+    .target(ActionTarget::Detail)
+    .icon("fa-solid fa-envelope")
+    .handler(|ctx: ActionContext| async move {
+        let id = ctx.ids.first().cloned().unwrap_or_default();
+        // send email for `id`...
+        Ok(ActionResult::Success("Email sent".to_string()))
+    });</code></pre>
+<h3 id="redirect-on-completion"><a class="header" href="#redirect-on-completion">Redirect on Completion</a></h3>
+<pre><code class="language-rust">let archive = CustomAction::builder("archive", "Archive")
+    .target(ActionTarget::Detail)
+    .confirm("Archive this record?")
+    .handler(|ctx: ActionContext| async move {
+        // perform archive...
+        Ok(ActionResult::Redirect("/admin/posts".to_string()))
+    });</code></pre>
+<h2 id="registering-actions"><a class="header" href="#registering-actions">Registering Actions</a></h2>
+<p>Attach actions to an entity with <code>.action()</code>:</p>
+<pre><code class="language-rust">EntityAdmin::from_entity::&lt;posts::Entity&gt;("posts")
+    .action(publish)
+    .action(send_email)
+    .action(archive)</code></pre>
+<p>Multiple actions can be registered on the same entity. They appear in the order they are registered.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../guides/rbac.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../guides/lifecycle-hooks.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../guides/rbac.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../guides/lifecycle-hooks.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

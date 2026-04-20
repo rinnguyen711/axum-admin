@@ -1,0 +1,1652 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>axum-admin</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="A modern admin dashboard framework for Axum">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Getting Started</li><li class="chapter-item expanded "><a href="getting-started/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="getting-started/quick-start.html"><strong aria-hidden="true">2.</strong> Quick Start</a></li><li class="chapter-item expanded "><a href="getting-started/blog-example.html"><strong aria-hidden="true">3.</strong> Blog Example</a></li><li class="chapter-item expanded affix "><li class="part-title">Configuration</li><li class="chapter-item expanded "><a href="configuration/options.html"><strong aria-hidden="true">4.</strong> Options</a></li><li class="chapter-item expanded affix "><li class="part-title">API Reference</li><li class="chapter-item expanded "><a href="api-reference/admin-app.html"><strong aria-hidden="true">5.</strong> AdminApp</a></li><li class="chapter-item expanded "><a href="api-reference/entity-admin.html"><strong aria-hidden="true">6.</strong> EntityAdmin</a></li><li class="chapter-item expanded "><a href="api-reference/fields.html"><strong aria-hidden="true">7.</strong> Fields</a></li><li class="chapter-item expanded "><a href="api-reference/data-adapter.html"><strong aria-hidden="true">8.</strong> DataAdapter</a></li><li class="chapter-item expanded "><a href="api-reference/cargo-doc.html"><strong aria-hidden="true">9.</strong> Rustdoc (docs.rs)</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="guides/authentication.html"><strong aria-hidden="true">10.</strong> Authentication</a></li><li class="chapter-item expanded "><a href="guides/rbac.html"><strong aria-hidden="true">11.</strong> RBAC</a></li><li class="chapter-item expanded "><a href="guides/custom-actions.html"><strong aria-hidden="true">12.</strong> Custom Actions</a></li><li class="chapter-item expanded "><a href="guides/lifecycle-hooks.html"><strong aria-hidden="true">13.</strong> Lifecycle Hooks</a></li><li class="chapter-item expanded affix "><li class="part-title">Template Customization</li><li class="chapter-item expanded "><a href="template-customization/overview.html"><strong aria-hidden="true">14.</strong> Overview</a></li><li class="chapter-item expanded "><a href="template-customization/minijinja-context.html"><strong aria-hidden="true">15.</strong> MiniJinja Context</a></li><li class="chapter-item expanded "><a href="template-customization/overriding-templates.html"><strong aria-hidden="true">16.</strong> Overriding Templates</a></li><li class="chapter-item expanded affix "><li class="part-title">Examples</li><li class="chapter-item expanded "><a href="examples/blog-walkthrough.html"><strong aria-hidden="true">17.</strong> Blog Walkthrough</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">axum-admin</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/rinnguyen711/axum-admin" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="axum-admin"><a class="header" href="#axum-admin">axum-admin</a></h1>
+<p>A modern admin dashboard framework for <a href="https://github.com/tokio-rs/axum">Axum</a>.</p>
+<p>Register your entities and get a full CRUD dashboard — search, filtering, pagination, bulk actions, custom actions, and built-in authentication — with zero frontend build step.</p>
+<p>Inspired by Django Admin and Laravel Nova.</p>
+<h2 id="features"><a class="header" href="#features">Features</a></h2>
+<ul>
+<li>CRUD out of the box — list, create, edit, delete for any entity</li>
+<li>Server-side rendering via MiniJinja, no JS framework required</li>
+<li>HTMX + Alpine.js embedded, no CDN or build step</li>
+<li>Session-based auth with argon2; swap in your own backend</li>
+<li>RBAC via Casbin — per-entity permissions tied to user roles</li>
+<li>Sidebar groups with collapsible sections and custom icons</li>
+<li>Filters, search, column sorting, pagination</li>
+<li>Bulk actions (delete, CSV export) and per-record custom actions</li>
+<li>Lifecycle hooks: <code>before_save</code>, <code>after_delete</code></li>
+<li>Template override support</li>
+<li>ORM-agnostic via <code>DataAdapter</code> trait</li>
+<li>First-party SeaORM adapter behind the <code>seaorm</code> feature flag</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>Add <code>axum-admin</code> to your <code>Cargo.toml</code>:</p>
+<pre><code class="language-sh">cargo add axum-admin --features seaorm
+cargo add axum tokio --features tokio/full
+</code></pre>
+<p>Or add manually:</p>
+<pre><code class="language-toml">[dependencies]
+axum-admin = { version = "0.1", features = ["seaorm"] }
+axum = { version = "0.7", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+</code></pre>
+<h2 id="feature-flags"><a class="header" href="#feature-flags">Feature Flags</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Flag</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>seaorm</code></td><td>Enables SeaORM adapter, RBAC via Casbin, and <code>SeaOrmAdminAuth</code></td></tr>
+</tbody></table>
+</div>
+<p>Without the <code>seaorm</code> feature, you must provide your own <code>DataAdapter</code> and <code>AdminAuth</code> implementations.</p>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<ul>
+<li>Rust 1.75+</li>
+<li>PostgreSQL (when using the <code>seaorm</code> feature)</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
+<p><img src="getting-started/../image.png" alt="axum-admin dashboard" /></p>
+<p>This guide gets you from zero to a running admin dashboard in 4 steps.</p>
+<h2 id="1-set-the-database-url"><a class="header" href="#1-set-the-database-url">1. Set the database URL</a></h2>
+<pre><code class="language-sh">export DATABASE_URL=postgres://user:password@localhost:5432/myapp
+</code></pre>
+<h2 id="2-create-the-admin-user"><a class="header" href="#2-create-the-admin-user">2. Create the admin user</a></h2>
+<p><code>SeaOrmAdminAuth::new()</code> runs migrations automatically, then <code>ensure_user</code> seeds the first account (idempotent — safe to call on every startup):</p>
+<pre><code class="language-rust">use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+
+let auth = SeaOrmAdminAuth::new(db.clone()).await?;
+auth.ensure_user("admin", "secret").await?;</code></pre>
+<h2 id="3-register-entities-and-mount-the-router"><a class="header" href="#3-register-entities-and-mount-the-router">3. Register entities and mount the router</a></h2>
+<pre><code class="language-rust">use axum_admin::{AdminApp, EntityAdmin, Field};
+use axum_admin::adapters::seaorm::SeaOrmAdapter;
+
+let app = AdminApp::new()
+    .title("My App Admin")
+    .prefix("/admin")
+    .seaorm_auth(auth)
+    .register(
+        EntityAdmin::new("posts")
+            .label("Posts")
+            .adapter(Box::new(SeaOrmAdapter::&lt;post::Entity&gt;::new(db.clone())))
+            .field(Field::text("title").label("Title"))
+            .field(Field::textarea("body").label("Body"))
+    )
+    .into_router()
+    .await;
+
+let router = axum::Router::new().merge(app);</code></pre>
+<h2 id="4-start-the-server"><a class="header" href="#4-start-the-server">4. Start the server</a></h2>
+<pre><code class="language-rust">let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+axum::serve(listener, router).await?;</code></pre>
+<p>Visit <code>http://localhost:3000/admin</code> and log in with the credentials from step 2.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="blog-example"><a class="header" href="#blog-example">Blog Example</a></h1>
+<p>The <code>examples/blog/</code> directory contains a complete working example using PostgreSQL and SeaORM.</p>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<ul>
+<li>Docker (for the database)</li>
+<li>Rust 1.75+</li>
+</ul>
+<h2 id="running-the-example"><a class="header" href="#running-the-example">Running the example</a></h2>
+<pre><code class="language-sh">cd examples/blog
+docker compose up -d db     # start PostgreSQL
+cargo run                   # run migrations + start server
+</code></pre>
+<p>Visit <code>http://localhost:3000/admin</code> and log in with <code>admin</code> / <code>admin</code>.</p>
+<h2 id="whats-included"><a class="header" href="#whats-included">What's included</a></h2>
+<ul>
+<li><code>Category</code> entity with id and name fields, searchable by name</li>
+<li><code>Post</code> entity with title, body, status, a foreign-key to Category, and a many-to-many relationship to Tags; searchable by title and body, filterable by status and category</li>
+<li><code>Tag</code> entity with id and name fields, searchable by name</li>
+<li>All three entities grouped under a "Blog" sidebar section</li>
+<li>SeaORM migrations for the blog tables</li>
+<li>Full CRUD for all entities</li>
+</ul>
+<p>See <code>examples/blog/src/admin.rs</code> for the full registration code.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-options"><a class="header" href="#configuration-options">Configuration Options</a></h1>
+<p>All options are set via builder methods on <code>AdminApp</code>.</p>
+<h2 id="adminapp-builder"><a class="header" href="#adminapp-builder">AdminApp builder</a></h2>
+<pre><code class="language-rust">AdminApp::new()
+    .title("My App")                    // browser tab title and sidebar header (default: "Admin")
+    .icon("fa-solid fa-bolt")           // Font Awesome icon class for the sidebar header (default: "fa-solid fa-bolt")
+    .prefix("/admin")                   // URL prefix for all admin routes (default: "/admin")
+    .auth(auth_backend)                 // set AdminAuth implementation (Box&lt;dyn AdminAuth&gt;)
+    .seaorm_auth(auth)                  // set SeaOrmAdminAuth (seaorm feature — wires auth + enforcer)
+    .upload_limit(20 * 1024 * 1024)    // max multipart upload size in bytes (default: 10 MiB)
+    .register(entity_or_group)          // register an EntityAdmin or EntityGroupAdmin
+    .template(name, content)            // override a built-in template by name
+    .template_dir(path)                 // load template overrides from a directory</code></pre>
+<h3 id="method-reference"><a class="header" href="#method-reference">Method reference</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Parameter</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>title</code></td><td><code>&amp;str</code></td><td><code>"Admin"</code></td><td>Sets the browser tab title and sidebar header text</td></tr>
+<tr><td><code>icon</code></td><td><code>&amp;str</code></td><td><code>"fa-solid fa-bolt"</code></td><td>Font Awesome icon class shown in the sidebar header</td></tr>
+<tr><td><code>prefix</code></td><td><code>&amp;str</code></td><td><code>"/admin"</code></td><td>URL prefix for all admin routes</td></tr>
+<tr><td><code>auth</code></td><td><code>Box&lt;dyn AdminAuth&gt;</code></td><td>—</td><td>Sets the authentication backend</td></tr>
+<tr><td><code>seaorm_auth</code></td><td><code>SeaOrmAdminAuth</code></td><td>—</td><td>SeaORM feature: wires auth and Casbin RBAC enforcer together</td></tr>
+<tr><td><code>upload_limit</code></td><td><code>usize</code> (bytes)</td><td><code>10 * 1024 * 1024</code></td><td>Maximum multipart body size in bytes</td></tr>
+<tr><td><code>register</code></td><td><code>EntityAdmin</code> or <code>EntityGroupAdmin</code></td><td>—</td><td>Registers an entity or group for display in the admin</td></tr>
+<tr><td><code>template</code></td><td><code>(&amp;str, &amp;str)</code></td><td>—</td><td>Override a built-in template by name (e.g. <code>"layout.html"</code>)</td></tr>
+<tr><td><code>template_dir</code></td><td><code>impl Into&lt;PathBuf&gt;</code></td><td>—</td><td>Load template overrides from a directory; later calls take precedence</td></tr>
+</tbody></table>
+</div>
+<h2 id="environment-variables"><a class="header" href="#environment-variables">Environment variables</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>DATABASE_URL</code></td><td>PostgreSQL connection string, required when using the <code>seaorm</code> feature</td></tr>
+</tbody></table>
+</div>
+<h2 id="feature-flags-1"><a class="header" href="#feature-flags-1">Feature flags</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Flag</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>seaorm</code></td><td>Enables SeaORM adapter (<code>SeaOrmAdapter</code>), auth (<code>SeaOrmAdminAuth</code>), and RBAC via Casbin</td></tr>
+</tbody></table>
+</div>
+<h2 id="mounting"><a class="header" href="#mounting">Mounting</a></h2>
+<p><code>AdminApp::into_router()</code> is async and returns an <code>axum::Router</code>:</p>
+<pre><code class="language-rust">let admin_router = AdminApp::new()
+    .title("My App")
+    .auth(Box::new(my_auth))
+    .register(my_entity)
+    .into_router().await;
+
+let app = axum::Router::new()
+    .merge(admin_router);</code></pre>
+<blockquote>
+<p><strong>Note:</strong> <code>.auth()</code> (or <code>.seaorm_auth()</code> when using the <code>seaorm</code> feature) must be called before <code>into_router()</code>, or it will panic at startup.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="adminapp"><a class="header" href="#adminapp">AdminApp</a></h1>
+<p><code>AdminApp</code> is the top-level builder for an axum-admin application. It collects configuration, registered entities, and authentication, then produces an Axum <code>Router</code>.</p>
+<pre><code class="language-rust">use axum_admin::AdminApp;
+
+let router = AdminApp::new()
+    .title("My App")
+    .prefix("/admin")
+    .auth(Box::new(my_auth))
+    .register(my_entity)
+    .into_router()
+    .await;</code></pre>
+<hr />
+<h2 id="constructor"><a class="header" href="#constructor">Constructor</a></h2>
+<h3 id="adminappnew---self"><a class="header" href="#adminappnew---self"><code>AdminApp::new() -&gt; Self</code></a></h3>
+<p>Creates an <code>AdminApp</code> with defaults:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>title</code></td><td><code>"Admin"</code></td></tr>
+<tr><td><code>icon</code></td><td><code>"fa-solid fa-bolt"</code></td></tr>
+<tr><td><code>prefix</code></td><td><code>"/admin"</code></td></tr>
+<tr><td><code>upload_limit</code></td><td><code>10485760</code> (10 MiB)</td></tr>
+<tr><td><code>auth</code></td><td>None (must be set before <code>into_router</code>)</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="builder-methods"><a class="header" href="#builder-methods">Builder Methods</a></h2>
+<h3 id="titleself-title-str---self"><a class="header" href="#titleself-title-str---self"><code>title(self, title: &amp;str) -&gt; Self</code></a></h3>
+<p>Sets the application name shown in the sidebar header and browser title.</p>
+<pre><code class="language-rust">.title("My Admin")</code></pre>
+<hr />
+<h3 id="iconself-icon-str---self"><a class="header" href="#iconself-icon-str---self"><code>icon(self, icon: &amp;str) -&gt; Self</code></a></h3>
+<p>Sets the Font Awesome icon class for the app logo in the sidebar. Defaults to <code>"fa-solid fa-bolt"</code>.</p>
+<pre><code class="language-rust">.icon("fa-solid fa-database")</code></pre>
+<hr />
+<h3 id="prefixself-prefix-str---self"><a class="header" href="#prefixself-prefix-str---self"><code>prefix(self, prefix: &amp;str) -&gt; Self</code></a></h3>
+<p>Sets the URL prefix for all admin routes. Defaults to <code>"/admin"</code>.</p>
+<pre><code class="language-rust">.prefix("/staff")</code></pre>
+<hr />
+<h3 id="registerself-entry-impl-intoadminentry---self"><a class="header" href="#registerself-entry-impl-intoadminentry---self"><code>register(self, entry: impl Into&lt;AdminEntry&gt;) -&gt; Self</code></a></h3>
+<p>Registers an <code>EntityAdmin</code> or <code>EntityGroupAdmin</code> with the app. Can be called multiple times.</p>
+<pre><code class="language-rust">.register(EntityAdmin::new::&lt;()&gt;("posts"))
+.register(my_entity_group)</code></pre>
+<hr />
+<h3 id="authself-auth-boxdyn-adminauth---self"><a class="header" href="#authself-auth-boxdyn-adminauth---self"><code>auth(self, auth: Box&lt;dyn AdminAuth&gt;) -&gt; Self</code></a></h3>
+<p>Sets the authentication provider. Required before calling <code>into_router()</code>. Panics at router construction if not set.</p>
+<pre><code class="language-rust">.auth(Box::new(DefaultAdminAuth::new("admin", "secret")))</code></pre>
+<hr />
+<h3 id="seaorm_authself-auth-seaormadminauth---self"><a class="header" href="#seaorm_authself-auth-seaormadminauth---self"><code>seaorm_auth(self, auth: SeaOrmAdminAuth) -&gt; Self</code></a></h3>
+<p><em>(Requires <code>seaorm</code> feature)</em></p>
+<p>Configures SeaORM-backed authentication with full RBAC support. Automatically sets the enforcer and auth provider. This is the recommended auth method when using SeaORM.</p>
+<pre><code class="language-rust">.seaorm_auth(SeaOrmAdminAuth::new(db.clone()).await?)</code></pre>
+<hr />
+<h3 id="upload_limitself-bytes-usize---self"><a class="header" href="#upload_limitself-bytes-usize---self"><code>upload_limit(self, bytes: usize) -&gt; Self</code></a></h3>
+<p>Sets the maximum multipart upload body size in bytes. Defaults to <code>10 * 1024 * 1024</code> (10 MiB).</p>
+<pre><code class="language-rust">.upload_limit(50 * 1024 * 1024) // 50 MiB</code></pre>
+<hr />
+<h3 id="templateself-name-str-content-str---self"><a class="header" href="#templateself-name-str-content-str---self"><code>template(self, name: &amp;str, content: &amp;str) -&gt; Self</code></a></h3>
+<p>Overrides a built-in template or adds a new one by name. Template names must match the filenames used by the renderer (e.g. <code>"home.html"</code>, <code>"layout.html"</code>, <code>"form.html"</code>). Inline templates set via this method take precedence over <code>template_dir</code> templates.</p>
+<pre><code class="language-rust">.template("home.html", include_str!("templates/home.html"))</code></pre>
+<hr />
+<h3 id="template_dirself-path-impl-intopathbuf---self"><a class="header" href="#template_dirself-path-impl-intopathbuf---self"><code>template_dir(self, path: impl Into&lt;PathBuf&gt;) -&gt; Self</code></a></h3>
+<p>Loads templates from a directory on disk at startup. Any <code>.html</code> file whose name matches a built-in template overrides it; unknown names are added as new templates. Multiple directories can be registered; later calls take precedence over earlier ones, and <code>.template()</code> always wins over <code>.template_dir()</code>.</p>
+<pre><code class="language-rust">.template_dir("templates/admin")</code></pre>
+<hr />
+<h2 id="finalizer"><a class="header" href="#finalizer">Finalizer</a></h2>
+<h3 id="async-fn-into_routerself---router"><a class="header" href="#async-fn-into_routerself---router"><code>async fn into_router(self) -&gt; Router</code></a></h3>
+<p>Consumes the <code>AdminApp</code> and returns a configured Axum <code>Router</code> with all admin routes, static assets, middleware, and authentication layers applied.</p>
+<p><strong>Panics</strong> if <code>.auth()</code> (or <code>.seaorm_auth()</code>) was not called before this method.</p>
+<pre><code class="language-rust">let router = AdminApp::new()
+    .title("My App")
+    .auth(Box::new(my_auth))
+    .register(users_entity)
+    .into_router()
+    .await;
+
+let app = Router::new().merge(router);</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="entityadmin"><a class="header" href="#entityadmin">EntityAdmin</a></h1>
+<p><code>EntityAdmin</code> and <code>EntityGroupAdmin</code> are the core types for registering entities with the admin panel.</p>
+<hr />
+<h2 id="entityadmin-1"><a class="header" href="#entityadmin-1">EntityAdmin</a></h2>
+<p>Represents a single data model in the admin panel — its list view, form fields, search configuration, custom actions, and access permissions.</p>
+<pre><code class="language-rust">use axum_admin::{EntityAdmin, Field, FieldType};
+
+let posts = EntityAdmin::new::&lt;()&gt;("posts")
+    .label("Blog Posts")
+    .icon("fa-solid fa-newspaper")
+    .adapter(Box::new(my_adapter))
+    .field(Field::new("title", FieldType::Text))
+    .field(Field::new("body", FieldType::Textarea))
+    .list_display(vec!["title".into(), "created_at".into()])
+    .search_fields(vec!["title".into(), "body".into()]);</code></pre>
+<hr />
+<h3 id="constructors"><a class="header" href="#constructors">Constructors</a></h3>
+<h4 id="entityadminnewtentity-str---self"><a class="header" href="#entityadminnewtentity-str---self"><code>EntityAdmin::new&lt;T&gt;(entity: &amp;str) -&gt; Self</code></a></h4>
+<p>Creates a new <code>EntityAdmin</code> for the given entity name. The type parameter <code>T</code> is a marker and can be <code>()</code> when not using SeaORM entity inference.</p>
+<p>Defaults:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>label</code></td><td>Auto-generated from entity name (e.g. <code>"blog_posts"</code> → <code>"Blog Posts"</code>)</td></tr>
+<tr><td><code>icon</code></td><td><code>"fa-solid fa-layer-group"</code></td></tr>
+<tr><td><code>pk_field</code></td><td><code>"id"</code></td></tr>
+<tr><td><code>bulk_delete</code></td><td><code>true</code></td></tr>
+<tr><td><code>bulk_export</code></td><td><code>true</code></td></tr>
+</tbody></table>
+</div>
+<hr />
+<h4 id="entityadminfrom_entityename-str---self"><a class="header" href="#entityadminfrom_entityename-str---self"><code>EntityAdmin::from_entity&lt;E&gt;(name: &amp;str) -&gt; Self</code></a></h4>
+<p><em>(Requires <code>seaorm</code> feature)</em></p>
+<p>Creates an <code>EntityAdmin</code> with fields inferred from a SeaORM entity type. Field types are derived automatically from column definitions.</p>
+<pre><code class="language-rust">EntityAdmin::from_entity::&lt;entity::post::Entity&gt;("posts")</code></pre>
+<hr />
+<h3 id="builder-methods-1"><a class="header" href="#builder-methods-1">Builder Methods</a></h3>
+<h4 id="labelself-label-str---self"><a class="header" href="#labelself-label-str---self"><code>label(self, label: &amp;str) -&gt; Self</code></a></h4>
+<p>Overrides the human-readable label shown in the sidebar and page titles.</p>
+<pre><code class="language-rust">.label("Blog Posts")</code></pre>
+<hr />
+<h4 id="iconself-icon-str---self-1"><a class="header" href="#iconself-icon-str---self-1"><code>icon(self, icon: &amp;str) -&gt; Self</code></a></h4>
+<p>Sets the Font Awesome icon class for this entity in the sidebar and dashboard. Defaults to <code>"fa-solid fa-layer-group"</code>.</p>
+<pre><code class="language-rust">.icon("fa-solid fa-newspaper")</code></pre>
+<hr />
+<h4 id="pk_fieldself-pk-str---self"><a class="header" href="#pk_fieldself-pk-str---self"><code>pk_field(self, pk: &amp;str) -&gt; Self</code></a></h4>
+<p>Overrides the primary key field name. Defaults to <code>"id"</code>.</p>
+<pre><code class="language-rust">.pk_field("uuid")</code></pre>
+<hr />
+<h4 id="groupself-group-str---self"><a class="header" href="#groupself-group-str---self"><code>group(self, group: &amp;str) -&gt; Self</code></a></h4>
+<p>Assigns this entity to a named sidebar group. Entities sharing the same group label are collapsed under a single expandable section. Using <code>EntityGroupAdmin</code> is usually more ergonomic for this.</p>
+<pre><code class="language-rust">.group("Content")</code></pre>
+<hr />
+<h4 id="adapterself-adapter-boxdyn-dataadapter---self"><a class="header" href="#adapterself-adapter-boxdyn-dataadapter---self"><code>adapter(self, adapter: Box&lt;dyn DataAdapter&gt;) -&gt; Self</code></a></h4>
+<p>Sets the data adapter responsible for list, create, update, and delete operations.</p>
+<pre><code class="language-rust">.adapter(Box::new(PostAdapter { db: db.clone() }))</code></pre>
+<hr />
+<h4 id="fieldself-field-field---self"><a class="header" href="#fieldself-field-field---self"><code>field(self, field: Field) -&gt; Self</code></a></h4>
+<p>Adds a field to the form and/or list. If a field with the same name already exists, it is replaced. Can be called multiple times.</p>
+<pre><code class="language-rust">.field(Field::new("title", FieldType::Text))
+.field(Field::new("status", FieldType::Select(options)))</code></pre>
+<hr />
+<h4 id="list_displayself-fields-vecstring---self"><a class="header" href="#list_displayself-fields-vecstring---self"><code>list_display(self, fields: Vec&lt;String&gt;) -&gt; Self</code></a></h4>
+<p>Sets the list of field names shown as columns in the entity list view. If empty, all fields are shown.</p>
+<pre><code class="language-rust">.list_display(vec!["title".into(), "status".into(), "created_at".into()])</code></pre>
+<hr />
+<h4 id="search_fieldsself-fields-vecstring---self"><a class="header" href="#search_fieldsself-fields-vecstring---self"><code>search_fields(self, fields: Vec&lt;String&gt;) -&gt; Self</code></a></h4>
+<p>Configures which field names are searched when a search query is submitted on the list page.</p>
+<pre><code class="language-rust">.search_fields(vec!["title".into(), "body".into()])</code></pre>
+<hr />
+<h4 id="filter_fieldsself-fields-vecstring---self"><a class="header" href="#filter_fieldsself-fields-vecstring---self"><code>filter_fields(self, fields: Vec&lt;String&gt;) -&gt; Self</code></a></h4>
+<p>Specifies the field names available as sidebar filters on the list page. Uses the field definitions already registered via <code>.field()</code>.</p>
+<pre><code class="language-rust">.filter_fields(vec!["status".into(), "category".into()])</code></pre>
+<hr />
+<h4 id="filterself-field-field---self"><a class="header" href="#filterself-field-field---self"><code>filter(self, field: Field) -&gt; Self</code></a></h4>
+<p>Adds or replaces a dedicated filter field. Use this when the filter control should differ from the form field (e.g. a Select filter for a Text form field). If a filter with the same name already exists, it is replaced.</p>
+<pre><code class="language-rust">.filter(Field::new("status", FieldType::Select(status_options)))</code></pre>
+<hr />
+<h4 id="bulk_deleteself-enabled-bool---self"><a class="header" href="#bulk_deleteself-enabled-bool---self"><code>bulk_delete(self, enabled: bool) -&gt; Self</code></a></h4>
+<p>Enables or disables the bulk-delete action on the list page. Defaults to <code>true</code>.</p>
+<pre><code class="language-rust">.bulk_delete(false)</code></pre>
+<hr />
+<h4 id="bulk_exportself-enabled-bool---self"><a class="header" href="#bulk_exportself-enabled-bool---self"><code>bulk_export(self, enabled: bool) -&gt; Self</code></a></h4>
+<p>Enables or disables the bulk CSV export action on the list page. Defaults to <code>true</code>.</p>
+<pre><code class="language-rust">.bulk_export(false)</code></pre>
+<hr />
+<h4 id="actionself-action-customaction---self"><a class="header" href="#actionself-action-customaction---self"><code>action(self, action: CustomAction) -&gt; Self</code></a></h4>
+<p>Registers a custom action button. Use <code>CustomAction::builder()</code> to construct the action. Can be called multiple times.</p>
+<pre><code class="language-rust">.action(
+    CustomAction::builder("publish", "Publish")
+        .target(ActionTarget::List)
+        .confirm("Publish selected posts?")
+        .icon("fa-solid fa-upload")
+        .handler(|ctx| async move {
+            // ...
+            Ok(ActionResult::Success("Published.".into()))
+        })
+        .build()
+)</code></pre>
+<hr />
+<h4 id="before_savefself-f-f---self"><a class="header" href="#before_savefself-f-f---self"><code>before_save&lt;F&gt;(self, f: F) -&gt; Self</code></a></h4>
+<p>Registers a synchronous hook called before a record is created or updated. Receives a mutable reference to the form data map. Return <code>Err(AdminError)</code> to abort the save.</p>
+<pre><code class="language-rust">where F: Fn(&amp;mut HashMap&lt;String, Value&gt;) -&gt; Result&lt;(), AdminError&gt; + Send + Sync + 'static</code></pre>
+<pre><code class="language-rust">.before_save(|data| {
+    data.insert("updated_at".into(), Value::String(Utc::now().to_rfc3339()));
+    Ok(())
+})</code></pre>
+<hr />
+<h4 id="after_deletefself-f-f---self"><a class="header" href="#after_deletefself-f-f---self"><code>after_delete&lt;F&gt;(self, f: F) -&gt; Self</code></a></h4>
+<p>Registers a synchronous hook called after a record is deleted. Receives the deleted record's primary key value. Return <code>Err(AdminError)</code> to surface an error (record is already deleted).</p>
+<pre><code class="language-rust">where F: Fn(&amp;Value) -&gt; Result&lt;(), AdminError&gt; + Send + Sync + 'static</code></pre>
+<pre><code class="language-rust">.after_delete(|id| {
+    println!("Deleted record: {id}");
+    Ok(())
+})</code></pre>
+<hr />
+<h3 id="permission-methods"><a class="header" href="#permission-methods">Permission Methods</a></h3>
+<p>These methods restrict access to specific operations on the entity. Permission strings are checked against the authenticated user's roles via the configured enforcer.</p>
+<h4 id="require_viewself-perm-str---self"><a class="header" href="#require_viewself-perm-str---self"><code>require_view(self, perm: &amp;str) -&gt; Self</code></a></h4>
+<p>Requires <code>perm</code> to list records or open the edit form.</p>
+<h4 id="require_createself-perm-str---self"><a class="header" href="#require_createself-perm-str---self"><code>require_create(self, perm: &amp;str) -&gt; Self</code></a></h4>
+<p>Requires <code>perm</code> to create a new record.</p>
+<h4 id="require_editself-perm-str---self"><a class="header" href="#require_editself-perm-str---self"><code>require_edit(self, perm: &amp;str) -&gt; Self</code></a></h4>
+<p>Requires <code>perm</code> to submit an edit.</p>
+<h4 id="require_deleteself-perm-str---self"><a class="header" href="#require_deleteself-perm-str---self"><code>require_delete(self, perm: &amp;str) -&gt; Self</code></a></h4>
+<p>Requires <code>perm</code> to delete a record.</p>
+<h4 id="require_roleself-role-str---self"><a class="header" href="#require_roleself-role-str---self"><code>require_role(self, role: &amp;str) -&gt; Self</code></a></h4>
+<p>Shortcut: sets the same permission string for all four operations (view, create, edit, delete).</p>
+<pre><code class="language-rust">.require_role("admin")
+// equivalent to:
+.require_view("admin")
+.require_create("admin")
+.require_edit("admin")
+.require_delete("admin")</code></pre>
+<hr />
+<h2 id="entitygroupadmin"><a class="header" href="#entitygroupadmin">EntityGroupAdmin</a></h2>
+<p>Groups multiple <code>EntityAdmin</code> instances under a collapsible sidebar section. Register the group with <code>AdminApp::register()</code> the same way as a plain <code>EntityAdmin</code>.</p>
+<pre><code class="language-rust">use axum_admin::EntityGroupAdmin;
+
+let content_group = EntityGroupAdmin::new("Content")
+    .icon("fa-solid fa-folder")
+    .register(posts_entity)
+    .register(pages_entity);
+
+AdminApp::new()
+    // ...
+    .register(content_group)</code></pre>
+<hr />
+<h3 id="constructor-1"><a class="header" href="#constructor-1">Constructor</a></h3>
+<h4 id="entitygroupadminnewlabel-str---self"><a class="header" href="#entitygroupadminnewlabel-str---self"><code>EntityGroupAdmin::new(label: &amp;str) -&gt; Self</code></a></h4>
+<p>Creates a new group with the given sidebar label.</p>
+<hr />
+<h3 id="builder-methods-2"><a class="header" href="#builder-methods-2">Builder Methods</a></h3>
+<h4 id="iconself-icon-str---self-2"><a class="header" href="#iconself-icon-str---self-2"><code>icon(self, icon: &amp;str) -&gt; Self</code></a></h4>
+<p>Sets an optional Font Awesome icon shown next to the group label in the sidebar.</p>
+<pre><code class="language-rust">.icon("fa-solid fa-folder-open")</code></pre>
+<hr />
+<h4 id="registerself-entity-entityadmin---self"><a class="header" href="#registerself-entity-entityadmin---self"><code>register(self, entity: EntityAdmin) -&gt; Self</code></a></h4>
+<p>Adds an <code>EntityAdmin</code> to this group. Can be called multiple times. When the group is registered with <code>AdminApp::register()</code>, all member entities are stamped with the group label.</p>
+<pre><code class="language-rust">.register(posts_entity)
+.register(comments_entity)</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="fields"><a class="header" href="#fields">Fields</a></h1>
+<p><code>Field</code> is the core building block for admin forms and list views. Each field has a name, a label, a type, and optional modifiers.</p>
+<hr />
+<h2 id="field-constructors"><a class="header" href="#field-constructors">Field Constructors</a></h2>
+<p>All constructors take a <code>name: &amp;str</code> and return a <code>Field</code>. The label defaults to the name with underscores replaced by spaces and the first letter capitalised.</p>
+<div class="table-wrapper"><table><thead><tr><th>Constructor</th><th>FieldType set</th><th>Notes</th></tr></thead><tbody>
+<tr><td><code>Field::text(name)</code></td><td><code>Text</code></td><td>Single-line text input</td></tr>
+<tr><td><code>Field::textarea(name)</code></td><td><code>TextArea</code></td><td>Multi-line text input</td></tr>
+<tr><td><code>Field::email(name)</code></td><td><code>Email</code></td><td>Auto-wires <code>EmailFormat</code> validator</td></tr>
+<tr><td><code>Field::password(name)</code></td><td><code>Password</code></td><td>Rendered as <code>&lt;input type="password"&gt;</code></td></tr>
+<tr><td><code>Field::number(name)</code></td><td><code>Number</code></td><td>Integer input</td></tr>
+<tr><td><code>Field::float(name)</code></td><td><code>Float</code></td><td>Decimal input</td></tr>
+<tr><td><code>Field::boolean(name)</code></td><td><code>Boolean</code></td><td>Checkbox</td></tr>
+<tr><td><code>Field::date(name)</code></td><td><code>Date</code></td><td>Date picker</td></tr>
+<tr><td><code>Field::datetime(name)</code></td><td><code>DateTime</code></td><td>Date + time picker</td></tr>
+<tr><td><code>Field::json(name)</code></td><td><code>Json</code></td><td>JSON editor textarea</td></tr>
+<tr><td><code>Field::select(name, options)</code></td><td><code>Select(Vec&lt;(String, String)&gt;)</code></td><td><code>options</code> is <code>Vec&lt;(value, label)&gt;</code></td></tr>
+<tr><td><code>Field::foreign_key(name, label, adapter, value_field, label_field)</code></td><td><code>ForeignKey</code></td><td>Dropdown populated by a <code>DataAdapter</code></td></tr>
+<tr><td><code>Field::many_to_many(name, adapter)</code></td><td><code>ManyToMany</code></td><td>Multi-select backed by a <code>ManyToManyAdapter</code></td></tr>
+<tr><td><code>Field::file(name, storage)</code></td><td><code>File</code></td><td>File upload; <code>storage</code> is <code>Arc&lt;dyn FileStorage&gt;</code></td></tr>
+<tr><td><code>Field::image(name, storage)</code></td><td><code>Image</code></td><td>Image upload; server validates <code>image/*</code> MIME type</td></tr>
+<tr><td><code>Field::custom(name, widget)</code></td><td><code>Custom(Box&lt;dyn Widget&gt;)</code></td><td>Fully custom HTML widget</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="builder-methods-3"><a class="header" href="#builder-methods-3">Builder Methods</a></h2>
+<p>All builder methods consume <code>self</code> and return <code>Self</code> so they can be chained.</p>
+<h3 id="appearance--visibility"><a class="header" href="#appearance--visibility">Appearance / visibility</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Effect</th></tr></thead><tbody>
+<tr><td><code>.label(label: &amp;str)</code></td><td>Override the display label</td></tr>
+<tr><td><code>.help_text(text: &amp;str)</code></td><td>Show help text below the input</td></tr>
+<tr><td><code>.hidden()</code></td><td>Hide from both list and form views</td></tr>
+<tr><td><code>.readonly()</code></td><td>Show value but disable editing</td></tr>
+<tr><td><code>.list_only()</code></td><td>Show in list view only, not in forms</td></tr>
+<tr><td><code>.form_only()</code></td><td>Show in forms only, not in list view</td></tr>
+</tbody></table>
+</div>
+<h3 id="validation"><a class="header" href="#validation">Validation</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Adds validator</th></tr></thead><tbody>
+<tr><td><code>.required()</code></td><td>Sets <code>required = true</code> and adds <code>Required</code> validator</td></tr>
+<tr><td><code>.min_length(n: usize)</code></td><td><code>MinLength(n)</code></td></tr>
+<tr><td><code>.max_length(n: usize)</code></td><td><code>MaxLength(n)</code></td></tr>
+<tr><td><code>.min_value(n: f64)</code></td><td><code>MinValue(n)</code> — numeric fields</td></tr>
+<tr><td><code>.max_value(n: f64)</code></td><td><code>MaxValue(n)</code> — numeric fields</td></tr>
+<tr><td><code>.regex(pattern: &amp;str)</code></td><td><code>RegexValidator::new(pattern)</code> — panics on invalid regex</td></tr>
+<tr><td><code>.unique(adapter, col: &amp;str)</code></td><td>Async <code>Unique</code> validator via <code>DataAdapter</code></td></tr>
+<tr><td><code>.validator(v: Box&lt;dyn Validator&gt;)</code></td><td>Add any custom sync validator</td></tr>
+<tr><td><code>.async_validator(v: Box&lt;dyn AsyncValidator&gt;)</code></td><td>Add any custom async validator</td></tr>
+</tbody></table>
+</div>
+<h3 id="foreignkey-options"><a class="header" href="#foreignkey-options">ForeignKey options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Effect</th></tr></thead><tbody>
+<tr><td><code>.fk_limit(n: u64)</code></td><td>Limit the number of options loaded</td></tr>
+<tr><td><code>.fk_order_by(field: &amp;str)</code></td><td>Sort options by this column</td></tr>
+</tbody></table>
+</div>
+<h3 id="file-field-options"><a class="header" href="#file-field-options">File field options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Effect</th></tr></thead><tbody>
+<tr><td><code>.accept(types: Vec&lt;String&gt;)</code></td><td>Restrict accepted MIME types, e.g. <code>vec!["application/pdf".into()]</code>. No-op on non-File fields.</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="fieldtype-enum"><a class="header" href="#fieldtype-enum">FieldType Enum</a></h2>
+<pre><code class="language-rust">pub enum FieldType {
+    Text,
+    TextArea,
+    Email,
+    Password,
+    Number,
+    Float,
+    Boolean,
+    Date,
+    DateTime,
+    Select(Vec&lt;(String, String)&gt;),
+    ForeignKey {
+        adapter: Box&lt;dyn DataAdapter&gt;,
+        value_field: String,
+        label_field: String,
+        limit: Option&lt;u64&gt;,
+        order_by: Option&lt;String&gt;,
+    },
+    ManyToMany {
+        adapter: Box&lt;dyn ManyToManyAdapter&gt;,
+    },
+    File {
+        storage: Arc&lt;dyn FileStorage&gt;,
+        accept: Vec&lt;String&gt;, // empty = any type accepted
+    },
+    Image {
+        storage: Arc&lt;dyn FileStorage&gt;,
+    },
+    Json,
+    Custom(Box&lt;dyn Widget&gt;),
+}</code></pre>
+<hr />
+<h2 id="widget-trait"><a class="header" href="#widget-trait">Widget Trait</a></h2>
+<p>Implement <code>Widget</code> to fully control how a field is rendered in forms and list views.</p>
+<pre><code class="language-rust">pub trait Widget: Send + Sync {
+    /// Render the form input HTML for this field.
+    fn render_input(&amp;self, name: &amp;str, value: Option&lt;&amp;str&gt;) -&gt; String;
+    /// Render the display value for list/detail views.
+    fn render_display(&amp;self, value: Option&lt;&amp;str&gt;) -&gt; String;
+}</code></pre>
+<p>Use <code>Field::custom(name, Box::new(MyWidget))</code> to attach a custom widget.</p>
+<hr />
+<h2 id="built-in-validators"><a class="header" href="#built-in-validators">Built-in Validators</a></h2>
+<p>All validators are in the <code>axum_admin::validator</code> module and re-exported at the crate root.</p>
+<h3 id="sync-validators-validator-trait"><a class="header" href="#sync-validators-validator-trait">Sync validators (<code>Validator</code> trait)</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Type</th><th>Triggered by</th><th>Behaviour</th></tr></thead><tbody>
+<tr><td><code>Required</code></td><td><code>.required()</code></td><td>Fails on empty/whitespace-only input</td></tr>
+<tr><td><code>MinLength(usize)</code></td><td><code>.min_length(n)</code></td><td>Fails if <code>value.len() &lt; n</code></td></tr>
+<tr><td><code>MaxLength(usize)</code></td><td><code>.max_length(n)</code></td><td>Fails if <code>value.len() &gt; n</code></td></tr>
+<tr><td><code>MinValue(f64)</code></td><td><code>.min_value(n)</code></td><td>Fails if parsed f64 <code>&lt; n</code>; skips empty values</td></tr>
+<tr><td><code>MaxValue(f64)</code></td><td><code>.max_value(n)</code></td><td>Fails if parsed f64 <code>&gt; n</code>; skips empty values</td></tr>
+<tr><td><code>RegexValidator</code></td><td><code>.regex(pattern)</code></td><td>Fails if value does not match the pattern; skips empty</td></tr>
+<tr><td><code>EmailFormat</code></td><td><code>Field::email()</code></td><td>Checks for <code>local@domain.tld</code> structure; skips empty</td></tr>
+</tbody></table>
+</div>
+<h3 id="async-validators-asyncvalidator-trait"><a class="header" href="#async-validators-asyncvalidator-trait">Async validators (<code>AsyncValidator</code> trait)</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Type</th><th>Triggered by</th><th>Behaviour</th></tr></thead><tbody>
+<tr><td><code>Unique</code></td><td><code>.unique(adapter, col)</code></td><td>Queries the adapter for conflicting rows; excludes current record on edit</td></tr>
+</tbody></table>
+</div>
+<h3 id="custom-validators"><a class="header" href="#custom-validators">Custom validators</a></h3>
+<pre><code class="language-rust">pub trait Validator: Send + Sync {
+    fn validate(&amp;self, value: &amp;str) -&gt; Result&lt;(), String&gt;;
+}
+
+#[async_trait]
+pub trait AsyncValidator: Send + Sync {
+    async fn validate(&amp;self, value: &amp;str, record_id: Option&lt;&amp;Value&gt;) -&gt; Result&lt;(), String&gt;;
+}</code></pre>
+<p>Attach with <code>.validator(Box::new(MyValidator))</code> or <code>.async_validator(Box::new(MyAsyncValidator))</code>.</p>
+<hr />
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<pre><code class="language-rust">use axum_admin::Field;
+
+fn fields() -&gt; Vec&lt;Field&gt; {
+    vec![
+        Field::text("title").required().max_length(200),
+        Field::email("email").required().unique(adapter.clone(), "email"),
+        Field::select("status", vec![
+            ("draft".into(), "Draft".into()),
+            ("published".into(), "Published".into()),
+        ]),
+        Field::foreign_key("author_id", "Author", Box::new(UserAdapter), "id", "name")
+            .fk_order_by("name")
+            .fk_limit(100),
+        Field::boolean("active").help_text("Uncheck to deactivate this record."),
+        Field::datetime("created_at").readonly().list_only(),
+    ]
+}</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="dataadapter"><a class="header" href="#dataadapter">DataAdapter</a></h1>
+<p><code>DataAdapter</code> and <code>ManyToManyAdapter</code> are the two traits you implement to connect axum-admin to your database. Both are defined in <code>axum_admin::adapter</code> and re-exported at the crate root.</p>
+<hr />
+<h2 id="dataadapter-trait"><a class="header" href="#dataadapter-trait">DataAdapter Trait</a></h2>
+<pre><code class="language-rust">#[async_trait]
+pub trait DataAdapter: Send + Sync {
+    async fn list(&amp;self, params: ListParams) -&gt; Result&lt;Vec&lt;HashMap&lt;String, Value&gt;&gt;, AdminError&gt;;
+    async fn get(&amp;self, id: &amp;Value) -&gt; Result&lt;HashMap&lt;String, Value&gt;, AdminError&gt;;
+    async fn create(&amp;self, data: HashMap&lt;String, Value&gt;) -&gt; Result&lt;Value, AdminError&gt;;
+    async fn update(&amp;self, id: &amp;Value, data: HashMap&lt;String, Value&gt;) -&gt; Result&lt;(), AdminError&gt;;
+    async fn delete(&amp;self, id: &amp;Value) -&gt; Result&lt;(), AdminError&gt;;
+    async fn count(&amp;self, params: &amp;ListParams) -&gt; Result&lt;u64, AdminError&gt;;
+}</code></pre>
+<h3 id="methods"><a class="header" href="#methods">Methods</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>list(params)</code></td><td>Return a page of records matching the given <code>ListParams</code>. Each record is a <code>HashMap&lt;String, Value&gt;</code>.</td></tr>
+<tr><td><code>get(id)</code></td><td>Fetch a single record by primary key.</td></tr>
+<tr><td><code>create(data)</code></td><td>Insert a new record; return the new record's primary key as a <code>Value</code>.</td></tr>
+<tr><td><code>update(id, data)</code></td><td>Update an existing record by primary key.</td></tr>
+<tr><td><code>delete(id)</code></td><td>Delete a record by primary key.</td></tr>
+<tr><td><code>count(params)</code></td><td>Return the total count of records matching the params (used for pagination).</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="listparams"><a class="header" href="#listparams">ListParams</a></h2>
+<p><code>ListParams</code> is passed to <code>list</code> and <code>count</code> to describe the current query.</p>
+<pre><code class="language-rust">pub struct ListParams {
+    pub page: u64,
+    pub per_page: u64,
+    pub search: Option&lt;String&gt;,
+    pub search_columns: Vec&lt;String&gt;,
+    pub filters: HashMap&lt;String, Value&gt;,
+    pub order_by: Option&lt;(String, SortOrder)&gt;,
+}</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>page</code></td><td><code>1</code></td><td>1-based page number</td></tr>
+<tr><td><code>per_page</code></td><td><code>20</code></td><td>Rows per page</td></tr>
+<tr><td><code>search</code></td><td><code>None</code></td><td>Full-text search query string</td></tr>
+<tr><td><code>search_columns</code></td><td><code>[]</code></td><td>Columns to search against</td></tr>
+<tr><td><code>filters</code></td><td><code>{}</code></td><td>Exact-match column filters, e.g. <code>{"status": "active"}</code></td></tr>
+<tr><td><code>order_by</code></td><td><code>None</code></td><td>Column name and <code>SortOrder</code> direction</td></tr>
+</tbody></table>
+</div>
+<p><code>ListParams</code> implements <code>Default</code>, so you can use struct-update syntax:</p>
+<pre><code class="language-rust">let params = ListParams {
+    page: 2,
+    per_page: 50,
+    ..Default::default()
+};</code></pre>
+<hr />
+<h2 id="sortorder-enum"><a class="header" href="#sortorder-enum">SortOrder Enum</a></h2>
+<pre><code class="language-rust">#[derive(Debug, Clone, Default)]
+pub enum SortOrder {
+    #[default]
+    Asc,
+    Desc,
+}</code></pre>
+<p>The default variant is <code>Asc</code>. Used as the second element of the <code>order_by</code> tuple in <code>ListParams</code>.</p>
+<hr />
+<h2 id="manytomanyadapter-trait"><a class="header" href="#manytomanyadapter-trait">ManyToManyAdapter Trait</a></h2>
+<p><code>ManyToManyAdapter</code> drives <code>Field::many_to_many</code> fields. It manages the options list and the junction-table read/write for a specific relation.</p>
+<pre><code class="language-rust">#[async_trait]
+pub trait ManyToManyAdapter: Send + Sync {
+    async fn fetch_options(&amp;self) -&gt; Result&lt;Vec&lt;(String, String)&gt;, AdminError&gt;;
+    async fn fetch_selected(&amp;self, record_id: &amp;Value) -&gt; Result&lt;Vec&lt;String&gt;, AdminError&gt;;
+    async fn save(&amp;self, record_id: &amp;Value, selected_ids: Vec&lt;String&gt;) -&gt; Result&lt;(), AdminError&gt;;
+}</code></pre>
+<h3 id="methods-1"><a class="header" href="#methods-1">Methods</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>fetch_options()</code></td><td>Return all available options as <code>(value, label)</code> pairs.</td></tr>
+<tr><td><code>fetch_selected(record_id)</code></td><td>Return the IDs currently selected for the given record.</td></tr>
+<tr><td><code>save(record_id, selected_ids)</code></td><td>Atomically replace the current selection (delete + insert in the junction table).</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="seaorm-adapter"><a class="header" href="#seaorm-adapter">SeaORM Adapter</a></h2>
+<p>When the <code>seaorm</code> feature is enabled, axum-admin ships a <code>SeaOrmAdapter</code> in <code>axum_admin::adapters::seaorm</code>. It implements <code>DataAdapter</code> on top of a SeaORM <code>DatabaseConnection</code> and a model type.</p>
+<p>Enable the feature in <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">[dependencies]
+axum-admin = { version = "0.1", features = ["seaorm"] }
+</code></pre>
+<p>Refer to the <a href="api-reference/../quick-start.html">Quick Start</a> guide and the SeaORM adapter source for usage details. For custom databases or ORMs, implement <code>DataAdapter</code> directly.</p>
+<hr />
+<h2 id="example-minimal-dataadapter"><a class="header" href="#example-minimal-dataadapter">Example: minimal DataAdapter</a></h2>
+<pre><code class="language-rust">use axum_admin::{DataAdapter, ListParams, AdminError};
+use async_trait::async_trait;
+use serde_json::Value;
+use std::collections::HashMap;
+
+pub struct MyAdapter { /* db connection etc. */ }
+
+#[async_trait]
+impl DataAdapter for MyAdapter {
+    async fn list(&amp;self, params: ListParams) -&gt; Result&lt;Vec&lt;HashMap&lt;String, Value&gt;&gt;, AdminError&gt; {
+        // query your database, apply params.search, params.filters, params.order_by
+        // return one page of results
+        todo!()
+    }
+
+    async fn get(&amp;self, id: &amp;Value) -&gt; Result&lt;HashMap&lt;String, Value&gt;, AdminError&gt; {
+        todo!()
+    }
+
+    async fn create(&amp;self, data: HashMap&lt;String, Value&gt;) -&gt; Result&lt;Value, AdminError&gt; {
+        // insert and return new PK
+        todo!()
+    }
+
+    async fn update(&amp;self, id: &amp;Value, data: HashMap&lt;String, Value&gt;) -&gt; Result&lt;(), AdminError&gt; {
+        todo!()
+    }
+
+    async fn delete(&amp;self, id: &amp;Value) -&gt; Result&lt;(), AdminError&gt; {
+        todo!()
+    }
+
+    async fn count(&amp;self, params: &amp;ListParams) -&gt; Result&lt;u64, AdminError&gt; {
+        todo!()
+    }
+}</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="rustdoc-docsrs"><a class="header" href="#rustdoc-docsrs">Rustdoc (docs.rs)</a></h1>
+<p>Full auto-generated API documentation is published at:</p>
+<p><strong><a href="https://docs.rs/axum-admin">https://docs.rs/axum-admin</a></strong></p>
+<p>The rustdoc covers all public types, traits, methods, and their signatures. Use this reference for exhaustive API details; the sections in this book focus on usage patterns and examples.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="authentication"><a class="header" href="#authentication">Authentication</a></h1>
+<p>axum-admin ships two auth backends out of the box and lets you plug in your own via the <code>AdminAuth</code> trait.</p>
+<h2 id="the-adminauth-trait"><a class="header" href="#the-adminauth-trait">The AdminAuth Trait</a></h2>
+<pre><code class="language-rust">#[async_trait]
+pub trait AdminAuth: Send + Sync {
+    async fn authenticate(
+        &amp;self,
+        username: &amp;str,
+        password: &amp;str,
+    ) -&gt; Result&lt;AdminUser, AdminError&gt;;
+
+    async fn get_session(&amp;self, session_id: &amp;str) -&gt; Result&lt;Option&lt;AdminUser&gt;, AdminError&gt;;
+}</code></pre>
+<p>The framework calls <code>authenticate</code> on login and <code>get_session</code> on every protected request. Both return an <code>AdminUser</code>:</p>
+<pre><code class="language-rust">pub struct AdminUser {
+    pub username: String,
+    pub session_id: String,
+    /// true = bypasses all permission checks (superuser access)
+    pub is_superuser: bool,
+}</code></pre>
+<h2 id="defaultadminauth"><a class="header" href="#defaultadminauth">DefaultAdminAuth</a></h2>
+<p><code>DefaultAdminAuth</code> is an in-memory backend. Credentials are configured at startup; sessions live for the process lifetime. Passwords are hashed with bcrypt.</p>
+<pre><code class="language-rust">use axum_admin::auth::DefaultAdminAuth;
+
+let auth = DefaultAdminAuth::new()
+    .add_user("admin", "s3cret");
+
+AdminApp::new()
+    .auth(Box::new(auth))
+    // ...</code></pre>
+<p><code>add_user</code> is builder-style and can be chained for multiple users. Every user created through <code>DefaultAdminAuth</code> is implicitly a superuser — it bypasses all permission checks.</p>
+<p>This backend is suitable for local development and single-user deployments. It has no persistence: users and sessions are lost on restart.</p>
+<h2 id="seaormadminauth"><a class="header" href="#seaormadminauth">SeaOrmAdminAuth</a></h2>
+<p><code>SeaOrmAdminAuth</code> stores users and sessions in PostgreSQL and integrates Casbin for RBAC. It requires the <code>seaorm</code> feature flag.</p>
+<h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
+<pre><code class="language-rust">use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+
+let auth = SeaOrmAdminAuth::new(db.clone()).await?;
+
+// Seed a default user only when the users table is empty.
+auth.ensure_user("admin", "change-me").await?;
+
+AdminApp::new()
+    .seaorm_auth(auth)
+    // ...</code></pre>
+<p><code>SeaOrmAdminAuth::new</code> runs database migrations automatically (idempotent). It creates the <code>auth_users</code>, <code>auth_sessions</code>, and Casbin policy tables.</p>
+<h3 id="ensure_user"><a class="header" href="#ensure_user">ensure_user</a></h3>
+<pre><code class="language-rust">pub async fn ensure_user(&amp;self, username: &amp;str, password: &amp;str) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Creates a user with <code>is_superuser = true</code> and assigns the <code>admin</code> role <strong>only if no users exist yet</strong>. Safe to call on every application startup.</p>
+<h3 id="create_user"><a class="header" href="#create_user">create_user</a></h3>
+<pre><code class="language-rust">pub async fn create_user(
+    &amp;self,
+    username: &amp;str,
+    password: &amp;str,
+    is_superuser: bool,
+) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Creates a user unconditionally. Passwords are hashed with Argon2.</p>
+<h3 id="change_password"><a class="header" href="#change_password">change_password</a></h3>
+<pre><code class="language-rust">pub async fn change_password(
+    &amp;self,
+    username: &amp;str,
+    old_password: &amp;str,
+    new_password: &amp;str,
+) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Verifies the old password before storing the new hash.</p>
+<h3 id="wiring-with-seaorm_auth"><a class="header" href="#wiring-with-seaorm_auth">Wiring with seaorm_auth</a></h3>
+<p><code>AdminApp::seaorm_auth</code> is a convenience method that sets both the auth backend and the Casbin enforcer in one call:</p>
+<pre><code class="language-rust">pub fn seaorm_auth(mut self, auth: SeaOrmAdminAuth) -&gt; Self</code></pre>
+<p>When <code>.seaorm_auth()</code> is used, the Users and Roles management pages appear automatically in the sidebar navigation.</p>
+<h2 id="custom-auth-backend"><a class="header" href="#custom-auth-backend">Custom Auth Backend</a></h2>
+<p>Implement <code>AdminAuth</code> on any struct and pass it with <code>.auth()</code>:</p>
+<pre><code class="language-rust">use axum_admin::auth::{AdminAuth, AdminUser};
+use axum_admin::error::AdminError;
+use async_trait::async_trait;
+
+pub struct MyAuth;
+
+#[async_trait]
+impl AdminAuth for MyAuth {
+    async fn authenticate(
+        &amp;self,
+        username: &amp;str,
+        password: &amp;str,
+    ) -&gt; Result&lt;AdminUser, AdminError&gt; {
+        // verify credentials, create a session record, return AdminUser
+        todo!()
+    }
+
+    async fn get_session(&amp;self, session_id: &amp;str) -&gt; Result&lt;Option&lt;AdminUser&gt;, AdminError&gt; {
+        // look up session by ID, return None if expired or missing
+        todo!()
+    }
+}
+
+AdminApp::new()
+    .auth(Box::new(MyAuth))</code></pre>
+<p>Custom backends always use the basic <code>.auth()</code> path. The Casbin enforcer and the Users/Roles nav pages are only available through <code>.seaorm_auth()</code>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="rbac"><a class="header" href="#rbac">RBAC</a></h1>
+<p>axum-admin uses <a href="https://casbin.org/">Casbin</a> for role-based access control. RBAC is only available when the <code>seaorm</code> feature is enabled and the app is configured with <code>.seaorm_auth()</code>.</p>
+<h2 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h2>
+<p>The permission model follows the pattern <code>(subject, object, action)</code>:</p>
+<ul>
+<li><strong>subject</strong> — a role name stored internally as <code>role:&lt;name&gt;</code> (e.g. <code>role:admin</code>)</li>
+<li><strong>object</strong> — an entity name (e.g. <code>posts</code>)</li>
+<li><strong>action</strong> — one of <code>view</code>, <code>create</code>, <code>edit</code>, <code>delete</code></li>
+</ul>
+<p>Superusers (<code>is_superuser = true</code>) bypass all Casbin checks. For regular users, every request checks that the user's assigned role has the required <code>(entity, action)</code> pair.</p>
+<h2 id="built-in-roles"><a class="header" href="#built-in-roles">Built-in Roles</a></h2>
+<p><code>seed_roles</code> pre-populates two roles for every registered entity:</p>
+<ul>
+<li><strong>admin</strong> — <code>view</code>, <code>create</code>, <code>edit</code>, <code>delete</code> on all entities</li>
+<li><strong>viewer</strong> — <code>view</code> only on all entities</li>
+</ul>
+<pre><code class="language-rust">pub async fn seed_roles(&amp;self, entity_names: &amp;[String]) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Call this after all entities are registered. The method is idempotent — it skips rules that already exist. The <code>AdminApp::seaorm_auth</code> builder calls <code>seed_roles</code> automatically when building the router.</p>
+<h2 id="assigning-roles"><a class="header" href="#assigning-roles">Assigning Roles</a></h2>
+<pre><code class="language-rust">pub async fn assign_role(&amp;self, username: &amp;str, role: &amp;str) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Assigns a role to a user. A user has exactly one role at a time — any previous role is removed first.</p>
+<pre><code class="language-rust">auth.assign_role("alice", "viewer").await?;
+auth.assign_role("bob", "admin").await?;</code></pre>
+<h2 id="role-management-api"><a class="header" href="#role-management-api">Role Management API</a></h2>
+<h3 id="create_role"><a class="header" href="#create_role">create_role</a></h3>
+<pre><code class="language-rust">pub async fn create_role(
+    &amp;self,
+    name: &amp;str,
+    permissions: &amp;[(String, String)],
+) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Creates a role with a specific set of <code>(entity, action)</code> pairs. Returns <code>AdminError::Conflict</code> if the role already exists.</p>
+<blockquote>
+<p><strong>Action strings:</strong> <code>create_role</code> takes raw Casbin action strings — <code>"view"</code>, <code>"create"</code>, <code>"edit"</code>, or <code>"delete"</code>. The entity-level guards (<code>require_view</code>, <code>require_edit</code>, etc.) automatically check <code>entity_name.action</code> against the Casbin policy; you never need to write the dotted form yourself when using those helpers.</p>
+</blockquote>
+<pre><code class="language-rust">auth.create_role("editor", &amp;[
+    ("posts".to_string(), "view".to_string()),
+    ("posts".to_string(), "edit".to_string()),
+]).await?;</code></pre>
+<h3 id="get_role_permissions"><a class="header" href="#get_role_permissions">get_role_permissions</a></h3>
+<pre><code class="language-rust">pub fn get_role_permissions(&amp;self, name: &amp;str) -&gt; Vec&lt;(String, String)&gt;</code></pre>
+<p>Returns all <code>(entity, action)</code> pairs assigned to the role.</p>
+<h3 id="update_role_permissions"><a class="header" href="#update_role_permissions">update_role_permissions</a></h3>
+<pre><code class="language-rust">pub async fn update_role_permissions(
+    &amp;self,
+    name: &amp;str,
+    permissions: &amp;[(String, String)],
+) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Replaces the full permission set for the role.</p>
+<h3 id="delete_role"><a class="header" href="#delete_role">delete_role</a></h3>
+<pre><code class="language-rust">pub async fn delete_role(&amp;self, name: &amp;str) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Deletes the role and all its policies. Returns <code>AdminError::Conflict</code> if any users are currently assigned to it.</p>
+<h3 id="list_roles"><a class="header" href="#list_roles">list_roles</a></h3>
+<pre><code class="language-rust">pub fn list_roles(&amp;self) -&gt; Vec&lt;String&gt;</code></pre>
+<p>Returns all role names currently in the policy store (without the <code>role:</code> prefix).</p>
+<h3 id="get_user_role"><a class="header" href="#get_user_role">get_user_role</a></h3>
+<pre><code class="language-rust">pub fn get_user_role(&amp;self, username: &amp;str) -&gt; Option&lt;String&gt;</code></pre>
+<p>Returns the role currently assigned to the user, or <code>None</code> if unassigned.</p>
+<h2 id="entity-level-permission-guards"><a class="header" href="#entity-level-permission-guards">Entity-Level Permission Guards</a></h2>
+<p>Define which permission is required for each operation on an entity:</p>
+<pre><code class="language-rust">EntityAdmin::from_entity::&lt;posts::Entity&gt;("posts")
+    .require_view("posts.view")
+    .require_create("posts.create")
+    .require_edit("posts.edit")
+    .require_delete("posts.delete")</code></pre>
+<p>Or use the shortcut to guard all four actions with the same permission string:</p>
+<pre><code class="language-rust">.require_role("posts.admin")</code></pre>
+<p>When the permission string matches the <code>entity.action</code> pattern (e.g. <code>"posts.view"</code>), Casbin checks <code>(username, posts, view)</code>. If no permission string is set, the framework auto-derives <code>entity_name.action</code> when an enforcer is present.</p>
+<h2 id="accessing-the-enforcer"><a class="header" href="#accessing-the-enforcer">Accessing the Enforcer</a></h2>
+<p>The Casbin enforcer is exposed for advanced use:</p>
+<pre><code class="language-rust">pub fn enforcer(&amp;self) -&gt; Arc&lt;tokio::sync::RwLock&lt;casbin::Enforcer&gt;&gt;</code></pre>
+<pre><code class="language-rust">let enforcer = auth.enforcer();
+let guard = enforcer.read().await;
+// use casbin CoreApi / MgmtApi / RbacApi directly</code></pre>
+<h2 id="startup-recipe"><a class="header" href="#startup-recipe">Startup Recipe</a></h2>
+<pre><code class="language-rust">let auth = SeaOrmAdminAuth::new(db.clone()).await?;
+auth.ensure_user("admin", "change-me").await?;
+
+let app = AdminApp::new()
+    .title("My App")
+    .seaorm_auth(auth)
+    .register(
+        EntityAdmin::from_entity::&lt;posts::Entity&gt;("posts")
+            .require_view("posts.view")
+            .require_edit("posts.edit")
+    )
+    .into_router();</code></pre>
+<p><code>seed_roles</code> is called automatically inside <code>.into_router()</code>, so the <code>admin</code> and <code>viewer</code> roles are available immediately after startup.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="custom-actions"><a class="header" href="#custom-actions">Custom Actions</a></h1>
+<p>Custom actions add buttons to the list view or detail form that trigger arbitrary async logic — sending emails, calling external APIs, bulk-processing records, etc.</p>
+<h2 id="core-types"><a class="header" href="#core-types">Core Types</a></h2>
+<h3 id="actiontarget"><a class="header" href="#actiontarget">ActionTarget</a></h3>
+<p>Where the action button is rendered:</p>
+<pre><code class="language-rust">pub enum ActionTarget {
+    List,    // Bulk action toolbar on the list page (operates on selected rows)
+    Detail,  // Action button on the edit/detail form (operates on a single record)
+}</code></pre>
+<h3 id="actioncontext"><a class="header" href="#actioncontext">ActionContext</a></h3>
+<p>Passed to the handler at invocation time:</p>
+<pre><code class="language-rust">pub struct ActionContext {
+    pub ids: Vec&lt;Value&gt;,                    // Selected record IDs
+    pub params: HashMap&lt;String, String&gt;,    // Query parameters from the request
+}</code></pre>
+<p>For <code>ActionTarget::List</code>, <code>ids</code> contains all selected row IDs. For <code>ActionTarget::Detail</code>, <code>ids</code> contains the single record's ID.</p>
+<h3 id="actionresult"><a class="header" href="#actionresult">ActionResult</a></h3>
+<p>What the handler returns:</p>
+<pre><code class="language-rust">pub enum ActionResult {
+    Success(String),   // Show a success flash message
+    Redirect(String),  // Redirect to the given URL
+    Error(String),     // Show an error flash message
+}</code></pre>
+<h2 id="building-a-custom-action"><a class="header" href="#building-a-custom-action">Building a Custom Action</a></h2>
+<p>Use <code>CustomAction::builder</code> to construct an action:</p>
+<pre><code class="language-rust">pub fn builder(name: &amp;str, label: &amp;str) -&gt; CustomActionBuilder</code></pre>
+<h3 id="builder-methods-4"><a class="header" href="#builder-methods-4">Builder Methods</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Signature</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>target</code></td><td><code>.target(ActionTarget)</code></td><td>Where to render the button. Defaults to <code>ActionTarget::List</code>.</td></tr>
+<tr><td><code>confirm</code></td><td><code>.confirm(&amp;str)</code></td><td>Confirmation dialog message shown before running.</td></tr>
+<tr><td><code>icon</code></td><td><code>.icon(&amp;str)</code></td><td>Font Awesome class for the button icon.</td></tr>
+<tr><td><code>class</code></td><td><code>.class(&amp;str)</code></td><td>CSS class(es) for the button element.</td></tr>
+<tr><td><code>handler</code></td><td><code>.handler(F)</code></td><td><strong>Required.</strong> Async function that runs the action. Consumes the builder and returns <code>CustomAction</code>.</td></tr>
+</tbody></table>
+</div>
+<h3 id="handler-signature"><a class="header" href="#handler-signature">handler Signature</a></h3>
+<pre><code class="language-rust">pub fn handler&lt;F, Fut&gt;(self, f: F) -&gt; CustomAction
+where
+    F: Fn(ActionContext) -&gt; Fut + Send + Sync + 'static,
+    Fut: Future&lt;Output = Result&lt;ActionResult, AdminError&gt;&gt; + Send + 'static,</code></pre>
+<p><code>.handler()</code> is the terminal method — it consumes the builder and produces the final <code>CustomAction</code>.</p>
+<h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
+<h3 id="list-action-bulk"><a class="header" href="#list-action-bulk">List Action (Bulk)</a></h3>
+<pre><code class="language-rust">use axum_admin::entity::{CustomAction, ActionTarget, ActionContext, ActionResult};
+
+let publish = CustomAction::builder("publish", "Publish Selected")
+    .target(ActionTarget::List)
+    .confirm("Publish all selected posts?")
+    .icon("fa-solid fa-globe")
+    .handler(|ctx: ActionContext| async move {
+        for id in &amp;ctx.ids {
+            // publish logic...
+        }
+        Ok(ActionResult::Success(format!("Published {} posts", ctx.ids.len())))
+    });</code></pre>
+<h3 id="detail-action-single-record"><a class="header" href="#detail-action-single-record">Detail Action (Single Record)</a></h3>
+<pre><code class="language-rust">let send_email = CustomAction::builder("send_welcome", "Send Welcome Email")
+    .target(ActionTarget::Detail)
+    .icon("fa-solid fa-envelope")
+    .handler(|ctx: ActionContext| async move {
+        let id = ctx.ids.first().cloned().unwrap_or_default();
+        // send email for `id`...
+        Ok(ActionResult::Success("Email sent".to_string()))
+    });</code></pre>
+<h3 id="redirect-on-completion"><a class="header" href="#redirect-on-completion">Redirect on Completion</a></h3>
+<pre><code class="language-rust">let archive = CustomAction::builder("archive", "Archive")
+    .target(ActionTarget::Detail)
+    .confirm("Archive this record?")
+    .handler(|ctx: ActionContext| async move {
+        // perform archive...
+        Ok(ActionResult::Redirect("/admin/posts".to_string()))
+    });</code></pre>
+<h2 id="registering-actions"><a class="header" href="#registering-actions">Registering Actions</a></h2>
+<p>Attach actions to an entity with <code>.action()</code>:</p>
+<pre><code class="language-rust">EntityAdmin::from_entity::&lt;posts::Entity&gt;("posts")
+    .action(publish)
+    .action(send_email)
+    .action(archive)</code></pre>
+<p>Multiple actions can be registered on the same entity. They appear in the order they are registered.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="lifecycle-hooks"><a class="header" href="#lifecycle-hooks">Lifecycle Hooks</a></h1>
+<p>Lifecycle hooks let you run synchronous logic at key points in a record's lifecycle — before a save completes or after a delete. They are registered per entity.</p>
+<h2 id="before_save"><a class="header" href="#before_save">before_save</a></h2>
+<p>Called before a record is written to the database. Receives a mutable reference to the form data so you can validate, transform, or reject the save.</p>
+<h3 id="signature"><a class="header" href="#signature">Signature</a></h3>
+<pre><code class="language-rust">pub fn before_save&lt;F&gt;(mut self, f: F) -&gt; Self
+where
+    F: Fn(&amp;mut HashMap&lt;String, Value&gt;) -&gt; Result&lt;(), AdminError&gt; + Send + Sync + 'static,</code></pre>
+<p>The <code>HashMap&lt;String, Value&gt;</code> contains the submitted field values keyed by field name. Return <code>Ok(())</code> to allow the save to proceed, or return <code>Err(AdminError::...)</code> to abort it.</p>
+<h3 id="examples-1"><a class="header" href="#examples-1">Examples</a></h3>
+<p><strong>Normalize a field before saving:</strong></p>
+<pre><code class="language-rust">use std::collections::HashMap;
+use serde_json::Value;
+use axum_admin::error::AdminError;
+
+EntityAdmin::from_entity::&lt;posts::Entity&gt;("posts")
+    .before_save(|data: &amp;mut HashMap&lt;String, Value&gt;| {
+        if let Some(Value::String(title)) = data.get_mut("title") {
+            *title = title.trim().to_string();
+        }
+        Ok(())
+    })</code></pre>
+<p><strong>Validate required business logic:</strong></p>
+<pre><code class="language-rust">.before_save(|data: &amp;mut HashMap&lt;String, Value&gt;| {
+    let slug = data.get("slug").and_then(|v| v.as_str()).unwrap_or("");
+    if slug.is_empty() {
+        return Err(AdminError::Validation("Slug cannot be empty".to_string()));
+    }
+    Ok(())
+})</code></pre>
+<p><strong>Inject a computed field:</strong></p>
+<pre><code class="language-rust">.before_save(|data: &amp;mut HashMap&lt;String, Value&gt;| {
+    let now = chrono::Utc::now().to_rfc3339();
+    data.insert("updated_at".to_string(), Value::String(now));
+    Ok(())
+})</code></pre>
+<h2 id="after_delete"><a class="header" href="#after_delete">after_delete</a></h2>
+<p>Called after a record is deleted from the database. Receives the primary key value of the deleted record.</p>
+<h3 id="signature-1"><a class="header" href="#signature-1">Signature</a></h3>
+<pre><code class="language-rust">pub fn after_delete&lt;F&gt;(mut self, f: F) -&gt; Self
+where
+    F: Fn(&amp;Value) -&gt; Result&lt;(), AdminError&gt; + Send + Sync + 'static,</code></pre>
+<p>The <code>&amp;Value</code> is the primary key of the deleted record. Returning <code>Err</code> from <code>after_delete</code> does not un-delete the record — the deletion has already occurred.</p>
+<h3 id="examples-2"><a class="header" href="#examples-2">Examples</a></h3>
+<p><strong>Log deletions:</strong></p>
+<pre><code class="language-rust">EntityAdmin::from_entity::&lt;posts::Entity&gt;("posts")
+    .after_delete(|id: &amp;Value| {
+        tracing::info!("Post deleted: {}", id);
+        Ok(())
+    })</code></pre>
+<p><strong>Clean up related data:</strong></p>
+<pre><code class="language-rust">.after_delete(|id: &amp;Value| {
+    // e.g. remove associated files, notify a webhook, etc.
+    let id_str = id.to_string();
+    // synchronous cleanup...
+    Ok(())
+})</code></pre>
+<h2 id="notes"><a class="header" href="#notes">Notes</a></h2>
+<ul>
+<li>Both hooks are <strong>synchronous</strong>. For async work (database calls, HTTP requests), use <code>std::thread::spawn</code> or a channel to offload to an async runtime, or restructure the logic to happen before/after the admin handler is called.</li>
+<li>Only one <code>before_save</code> and one <code>after_delete</code> hook can be registered per entity. Calling either method a second time replaces the previous hook.</li>
+<li>Hook functions must be <code>Send + Sync + 'static</code>, so they cannot capture non-<code>Send</code> types or references to short-lived data.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="template-customization-overview"><a class="header" href="#template-customization-overview">Template Customization Overview</a></h1>
+<p>axum-admin renders its UI using <a href="https://docs.rs/minijinja">MiniJinja</a>, a Rust implementation of the Jinja2 template engine. All built-in templates are compiled into the binary, so the admin works out of the box with no files on disk — but you can override any of them at startup.</p>
+<h2 id="how-template-resolution-works"><a class="header" href="#how-template-resolution-works">How Template Resolution Works</a></h2>
+<p>Templates are resolved in this priority order (highest to lowest):</p>
+<ol>
+<li><strong>Inline overrides</strong> — templates registered with <code>.template(name, content)</code></li>
+<li><strong>Directory overrides</strong> — templates loaded from a directory via <code>.template_dir(path)</code></li>
+<li><strong>Built-in templates</strong> — compiled into the binary at build time</li>
+</ol>
+<p>When more than one <code>.template_dir()</code> call is made, later calls take precedence over earlier ones. Inline <code>.template()</code> calls always win regardless of order.</p>
+<p>Templates are loaded once at startup. There is no runtime reloading.</p>
+<h2 id="override-methods"><a class="header" href="#override-methods">Override Methods</a></h2>
+<h3 id="templatename-content"><a class="header" href="#templatename-content"><code>.template(name, content)</code></a></h3>
+<p>Registers a single template by name from a string. Use this for small overrides or when you want to embed template content in your Rust source.</p>
+<pre><code class="language-rust">AdminApp::new()
+    .template("home.html", include_str!("templates/my_home.html"))
+    // ...</code></pre>
+<p>The <code>name</code> must match the built-in template filename exactly (e.g. <code>"layout.html"</code>, <code>"list.html"</code>). You can also register entirely new template names for use with custom routes.</p>
+<h3 id="template_dirpath"><a class="header" href="#template_dirpath"><code>.template_dir(path)</code></a></h3>
+<p>Loads all <code>.html</code> files from a directory. Any filename that matches a built-in template overrides it; files with new names are added as additional templates.</p>
+<pre><code class="language-rust">AdminApp::new()
+    .template_dir("templates/admin")
+    // ...</code></pre>
+<p>Multiple directories can be registered. Later calls take precedence:</p>
+<pre><code class="language-rust">AdminApp::new()
+    .template_dir("templates/base")    // lower priority
+    .template_dir("templates/custom")  // higher priority
+    // ...</code></pre>
+<h2 id="built-in-template-files"><a class="header" href="#built-in-template-files">Built-in Template Files</a></h2>
+<p>The following templates are compiled into the binary and can be overridden by name:</p>
+<div class="table-wrapper"><table><thead><tr><th>Template</th><th>Used for</th></tr></thead><tbody>
+<tr><td><code>layout.html</code></td><td>Outer HTML shell, sidebar, header</td></tr>
+<tr><td><code>home.html</code></td><td>Dashboard / index page</td></tr>
+<tr><td><code>list.html</code></td><td>Entity list page (search, filters, bulk actions)</td></tr>
+<tr><td><code>list_table.html</code></td><td>The table portion of the list page (rendered via HTMX)</td></tr>
+<tr><td><code>form.html</code></td><td>Create / edit form</td></tr>
+<tr><td><code>flash.html</code></td><td>Flash message partial</td></tr>
+<tr><td><code>login.html</code></td><td>Login page</td></tr>
+<tr><td><code>change_password.html</code></td><td>Change password page</td></tr>
+<tr><td><code>users_list.html</code></td><td>Built-in users management list</td></tr>
+<tr><td><code>user_form.html</code></td><td>Built-in user create/edit form</td></tr>
+<tr><td><code>roles.html</code></td><td>Built-in roles list</td></tr>
+<tr><td><code>role_form.html</code></td><td>Built-in role create form</td></tr>
+<tr><td><code>role_edit_form.html</code></td><td>Built-in role edit form</td></tr>
+<tr><td><code>forbidden.html</code></td><td>403 forbidden page</td></tr>
+</tbody></table>
+</div>
+<h2 id="template-engine-minijinja"><a class="header" href="#template-engine-minijinja">Template Engine: MiniJinja</a></h2>
+<p>All templates use <a href="https://docs.rs/minijinja">MiniJinja</a> syntax, which is compatible with Jinja2:</p>
+<ul>
+<li><code>{{ variable }}</code> — output a variable</li>
+<li><code>{% if condition %}...{% endif %}</code> — conditionals</li>
+<li><code>{% for item in list %}...{% endfor %}</code> — loops</li>
+<li><code>{% extends "layout.html" %}</code> / <code>{% block name %}...{% endblock %}</code> — inheritance (used by built-in templates)</li>
+<li><code>{% include "partial.html" %}</code> — includes</li>
+</ul>
+<p>The built-in templates use <code>{% extends "layout.html" %}</code> with a <code>{% block content %}</code> block. When overriding a page template (e.g. <code>list.html</code>), you can extend <code>layout.html</code> the same way.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="minijinja-context-variables"><a class="header" href="#minijinja-context-variables">MiniJinja Context Variables</a></h1>
+<p>Each template receives a context object serialized as a MiniJinja value. The variables available depend on which template is being rendered.</p>
+<h2 id="common-variables-list-and-form-pages"><a class="header" href="#common-variables-list-and-form-pages">Common Variables (List and Form Pages)</a></h2>
+<p>These variables are present in both <code>list.html</code> and <code>form.html</code>:</p>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>admin_title</code></td><td>string</td><td>The title set via <code>.title("My Admin")</code></td></tr>
+<tr><td><code>admin_icon</code></td><td>string</td><td>Font Awesome class for the sidebar logo icon</td></tr>
+<tr><td><code>entities</code></td><td>array</td><td>Flat list of all registered entities (see EntityRef below)</td></tr>
+<tr><td><code>nav</code></td><td>array</td><td>Sidebar navigation items (see below)</td></tr>
+<tr><td><code>current_entity</code></td><td>string</td><td>Name of the currently active entity</td></tr>
+<tr><td><code>entity_name</code></td><td>string</td><td>URL slug of the current entity</td></tr>
+<tr><td><code>entity_label</code></td><td>string</td><td>Human-readable name of the current entity</td></tr>
+<tr><td><code>flash_success</code></td><td>string or null</td><td>Success flash message</td></tr>
+<tr><td><code>flash_error</code></td><td>string or null</td><td>Error flash message</td></tr>
+<tr><td><code>show_auth_nav</code></td><td>bool</td><td>Whether to show Users / Roles links in the sidebar</td></tr>
+</tbody></table>
+</div>
+<h3 id="navigation-nav"><a class="header" href="#navigation-nav">Navigation (<code>nav</code>)</a></h3>
+<p>The <code>nav</code> array contains items of two types, distinguished by a <code>type</code> field:</p>
+<p><strong>Entity link</strong> (<code>type == "entity"</code>):</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>name</code></td><td>string</td><td>Entity URL slug</td></tr>
+<tr><td><code>label</code></td><td>string</td><td>Display label</td></tr>
+<tr><td><code>icon</code></td><td>string</td><td>Font Awesome class</td></tr>
+<tr><td><code>group</code></td><td>string or null</td><td>Group name if grouped</td></tr>
+</tbody></table>
+</div>
+<p><strong>Group</strong> (<code>type == "group"</code>):</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>label</code></td><td>string</td><td>Group display label</td></tr>
+<tr><td><code>entities</code></td><td>array</td><td>Child entity links (same shape as entity type)</td></tr>
+<tr><td><code>active</code></td><td>bool</td><td>True if any child is currently active</td></tr>
+</tbody></table>
+</div>
+<h3 id="entityref-entitiesn"><a class="header" href="#entityref-entitiesn">EntityRef (<code>entities[n]</code>)</a></h3>
+<p>The <code>entities</code> array (available on all list and form pages) is a flat list of every registered entity, useful for building custom navigation or cross-entity links.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>name</code></td><td>string</td><td>Entity URL slug</td></tr>
+<tr><td><code>label</code></td><td>string</td><td>Display label</td></tr>
+<tr><td><code>icon</code></td><td>string</td><td>Font Awesome class</td></tr>
+<tr><td><code>group</code></td><td>string or null</td><td>Group name if the entity belongs to a group</td></tr>
+</tbody></table>
+</div>
+<h2 id="list-page-listhtml-list_tablehtml"><a class="header" href="#list-page-listhtml-list_tablehtml">List Page (<code>list.html</code>, <code>list_table.html</code>)</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>columns</code></td><td>array of strings</td><td>Column names to display</td></tr>
+<tr><td><code>column_types</code></td><td>map</td><td>Maps column name to field type string</td></tr>
+<tr><td><code>rows</code></td><td>array</td><td>Row data (see below)</td></tr>
+<tr><td><code>search</code></td><td>string</td><td>Current search query</td></tr>
+<tr><td><code>page</code></td><td>integer</td><td>Current page number</td></tr>
+<tr><td><code>total_pages</code></td><td>integer</td><td>Total number of pages</td></tr>
+<tr><td><code>order_by</code></td><td>string</td><td>Column currently sorted</td></tr>
+<tr><td><code>order_dir</code></td><td>string</td><td><code>"asc"</code> or <code>"desc"</code></td></tr>
+<tr><td><code>filter_fields</code></td><td>array</td><td>Fields available as filters (see FieldContext below)</td></tr>
+<tr><td><code>active_filters</code></td><td>map</td><td>Currently applied filter values, keyed by field name</td></tr>
+<tr><td><code>actions</code></td><td>array</td><td>Bulk/row actions (see ActionContext below)</td></tr>
+<tr><td><code>bulk_delete</code></td><td>bool</td><td>Whether bulk delete is enabled</td></tr>
+<tr><td><code>bulk_export</code></td><td>bool</td><td>Whether bulk CSV export is enabled</td></tr>
+<tr><td><code>export_columns</code></td><td>array of <code>[name, label]</code> pairs</td><td>Columns available for export</td></tr>
+<tr><td><code>can_create</code></td><td>bool</td><td>Whether the current user can create records</td></tr>
+<tr><td><code>can_edit</code></td><td>bool</td><td>Whether the current user can edit records</td></tr>
+<tr><td><code>can_delete</code></td><td>bool</td><td>Whether the current user can delete records</td></tr>
+</tbody></table>
+</div>
+<h3 id="row-rowsn"><a class="header" href="#row-rowsn">Row (<code>rows[n]</code>)</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td>string</td><td>Record primary key</td></tr>
+<tr><td><code>data</code></td><td>map</td><td>Column name → display value (all strings)</td></tr>
+</tbody></table>
+</div>
+<h3 id="actioncontext-actionsn"><a class="header" href="#actioncontext-actionsn">ActionContext (<code>actions[n]</code>)</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>name</code></td><td>string</td><td>Action identifier used in the POST URL</td></tr>
+<tr><td><code>label</code></td><td>string</td><td>Button label</td></tr>
+<tr><td><code>target</code></td><td>string</td><td><code>"list"</code> (bulk) or <code>"row"</code> (per-row)</td></tr>
+<tr><td><code>confirm</code></td><td>string or null</td><td>Confirmation message, if any</td></tr>
+<tr><td><code>icon</code></td><td>string or null</td><td>Font Awesome class for button icon</td></tr>
+<tr><td><code>class</code></td><td>string or null</td><td>Custom CSS classes for the button</td></tr>
+</tbody></table>
+</div>
+<h2 id="form-page-formhtml"><a class="header" href="#form-page-formhtml">Form Page (<code>form.html</code>)</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>fields</code></td><td>array</td><td>Field definitions (see FieldContext below)</td></tr>
+<tr><td><code>values</code></td><td>map</td><td>Current field values, keyed by field name</td></tr>
+<tr><td><code>errors</code></td><td>map</td><td>Validation error messages, keyed by field name</td></tr>
+<tr><td><code>is_create</code></td><td>bool</td><td>True when creating a new record, false when editing</td></tr>
+<tr><td><code>record_id</code></td><td>string</td><td>The record's primary key (empty string on create)</td></tr>
+<tr><td><code>csrf_token</code></td><td>string</td><td>CSRF token to include in form submissions</td></tr>
+<tr><td><code>can_save</code></td><td>bool</td><td>Whether the current user can save this record</td></tr>
+</tbody></table>
+</div>
+<h3 id="fieldcontext-fieldsn"><a class="header" href="#fieldcontext-fieldsn">FieldContext (<code>fields[n]</code>)</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>name</code></td><td>string</td><td>Field name (used as <code>&lt;input name&gt;</code>)</td></tr>
+<tr><td><code>label</code></td><td>string</td><td>Human-readable label</td></tr>
+<tr><td><code>field_type</code></td><td>string</td><td>One of: <code>Text</code>, <code>Textarea</code>, <code>Integer</code>, <code>Float</code>, <code>Boolean</code>, <code>Select</code>, <code>Date</code>, <code>DateTime</code>, <code>File</code>, <code>ManyToMany</code>, <code>Hidden</code></td></tr>
+<tr><td><code>readonly</code></td><td>bool</td><td>Field is read-only</td></tr>
+<tr><td><code>hidden</code></td><td>bool</td><td>Field is hidden entirely</td></tr>
+<tr><td><code>list_only</code></td><td>bool</td><td>Field only appears on list pages</td></tr>
+<tr><td><code>form_only</code></td><td>bool</td><td>Field only appears on form pages</td></tr>
+<tr><td><code>required</code></td><td>bool</td><td>Field is required</td></tr>
+<tr><td><code>help_text</code></td><td>string or null</td><td>Optional help text shown below the field</td></tr>
+<tr><td><code>options</code></td><td>array of <code>[value, label]</code> pairs</td><td>Options for <code>Select</code> fields</td></tr>
+<tr><td><code>selected_ids</code></td><td>array of strings</td><td>Currently selected IDs for <code>ManyToMany</code> fields</td></tr>
+<tr><td><code>accept</code></td><td>array of strings</td><td>Accepted MIME types for <code>File</code> fields</td></tr>
+</tbody></table>
+</div>
+<h2 id="change-password-page-change_passwordhtml"><a class="header" href="#change-password-page-change_passwordhtml">Change Password Page (<code>change_password.html</code>)</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>admin_title</code></td><td>string</td><td>Admin panel title</td></tr>
+<tr><td><code>admin_icon</code></td><td>string</td><td>Font Awesome class for the sidebar logo icon</td></tr>
+<tr><td><code>nav</code></td><td>array</td><td>Sidebar navigation items (same shape as common <code>nav</code>)</td></tr>
+<tr><td><code>current_entity</code></td><td>string</td><td>Always an empty string on this page</td></tr>
+<tr><td><code>csrf_token</code></td><td>string</td><td>CSRF token to include in the form submission</td></tr>
+<tr><td><code>error</code></td><td>string or null</td><td>Inline error message (e.g. wrong current password)</td></tr>
+<tr><td><code>success</code></td><td>string or null</td><td>Inline success message after a successful password change</td></tr>
+<tr><td><code>flash_success</code></td><td>string or null</td><td>Success flash message carried over from a redirect</td></tr>
+<tr><td><code>flash_error</code></td><td>string or null</td><td>Error flash message carried over from a redirect</td></tr>
+</tbody></table>
+</div>
+<h2 id="login-page-loginhtml"><a class="header" href="#login-page-loginhtml">Login Page (<code>login.html</code>)</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>admin_title</code></td><td>string</td><td>Admin panel title</td></tr>
+<tr><td><code>error</code></td><td>string or null</td><td>Login error message</td></tr>
+<tr><td><code>csrf_token</code></td><td>string</td><td>CSRF token</td></tr>
+<tr><td><code>next</code></td><td>string or null</td><td>URL to redirect to after login</td></tr>
+</tbody></table>
+</div>
+<h2 id="flash-partial-flashhtml"><a class="header" href="#flash-partial-flashhtml">Flash Partial (<code>flash.html</code>)</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>success</code></td><td>string or null</td><td>Success message</td></tr>
+<tr><td><code>error</code></td><td>string or null</td><td>Error message</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="overriding-templates"><a class="header" href="#overriding-templates">Overriding Templates</a></h1>
+<p>You can replace any built-in template with your own version. Templates must be valid MiniJinja and receive the same context variables described in the <a href="template-customization/./minijinja-context.html">MiniJinja Context</a> chapter.</p>
+<h2 id="choosing-an-override-method"><a class="header" href="#choosing-an-override-method">Choosing an Override Method</a></h2>
+<p>Use <code>.template()</code> for a single template you want to keep inline or load with <code>include_str!</code>:</p>
+<pre><code class="language-rust">AdminApp::new()
+    // home.html is the dashboard landing page shown after login
+    .template("home.html", include_str!("../templates/admin/home.html"))
+    // ...</code></pre>
+<p>Use <code>.template_dir()</code> when you're overriding several templates and prefer to keep them as files on disk:</p>
+<pre><code class="language-rust">AdminApp::new()
+    .template_dir("templates/admin")
+    // ...</code></pre>
+<p>Both methods can be combined. <code>.template()</code> always wins over <code>.template_dir()</code> regardless of call order.</p>
+<h2 id="example-custom-home-page"><a class="header" href="#example-custom-home-page">Example: Custom Home Page</a></h2>
+<p>Create <code>templates/admin/home.html</code>:</p>
+<pre><code class="language-html">{% extends "layout.html" %}
+{% block title %}Dashboard — {{ admin_title }}{% endblock %}
+{% block content %}
+&lt;div class="max-w-2xl"&gt;
+  &lt;h1 class="text-2xl font-bold text-zinc-900 mb-2"&gt;Welcome&lt;/h1&gt;
+  &lt;p class="text-zinc-500"&gt;You are logged in to {{ admin_title }}.&lt;/p&gt;
+&lt;/div&gt;
+{% endblock %}
+</code></pre>
+<p>Register it in your app setup:</p>
+<pre><code class="language-rust">AdminApp::new()
+    .title("My App")
+    .template_dir("templates/admin")
+    .auth(...)
+    // ...</code></pre>
+<h2 id="template-inheritance"><a class="header" href="#template-inheritance">Template Inheritance</a></h2>
+<p>The built-in templates use MiniJinja's <code>{% extends %}</code> / <code>{% block %}</code> system. <code>layout.html</code> defines two blocks:</p>
+<ul>
+<li><code>{% block title %}</code> — the <code>&lt;title&gt;</code> tag content</li>
+<li><code>{% block content %}</code> — the main page body inside the scrollable content area</li>
+</ul>
+<p>When writing a replacement for any page template (e.g. <code>list.html</code>, <code>form.html</code>, <code>home.html</code>), extend <code>layout.html</code> to get the sidebar, header, and flash messages for free:</p>
+<pre><code class="language-html">{% extends "layout.html" %}
+{% block title %}{{ entity_label }} — {{ admin_title }}{% endblock %}
+{% block content %}
+  &lt;!-- your page content here --&gt;
+{% endblock %}
+</code></pre>
+<p>If you replace <code>layout.html</code> itself, the page templates that extend it will use your version automatically.</p>
+<h2 id="adding-new-templates"><a class="header" href="#adding-new-templates">Adding New Templates</a></h2>
+<p>You can add templates with names that don't correspond to any built-in. These are available for use in custom Axum routes that call the renderer directly, or via <code>{% include %}</code> from other templates:</p>
+<pre><code class="language-rust">AdminApp::new()
+    .template("widgets/stat_card.html", include_str!("../templates/stat_card.html"))
+    // ...</code></pre>
+<h2 id="partial-overrides-via--include-"><a class="header" href="#partial-overrides-via--include-">Partial Overrides via <code>{% include %}</code></a></h2>
+<p>The list page renders its table section by including <code>list_table.html</code>. Overriding <code>list_table.html</code> alone lets you change how rows are displayed without replacing the full list page (search bar, filters, bulk actions, etc.).</p>
+<h2 id="notes-1"><a class="header" href="#notes-1">Notes</a></h2>
+<ul>
+<li>Template files are loaded once at startup. Editing files on disk after the server starts has no effect until restart.</li>
+<li>Template errors are caught at render time and return an HTML error message in development, so a broken override will not panic the server.</li>
+<li>The <code>basename</code> filter is available in all templates: <code>{{ path | basename }}</code> returns the filename portion of a path string.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="blog-example-walkthrough"><a class="header" href="#blog-example-walkthrough">Blog Example Walkthrough</a></h1>
+<p>The blog example is the canonical axum-admin demo. It registers three related entities — <strong>Categories</strong>, <strong>Posts</strong>, and <strong>Tags</strong> — and shows foreign keys, many-to-many relationships, enum fields, search, and filters all working together.</p>
+<p>Source: <code>examples/blog/</code></p>
+<hr />
+<h2 id="what-it-builds"><a class="header" href="#what-it-builds">What it builds</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Entity</th><th>Table</th><th>Notable fields</th></tr></thead><tbody>
+<tr><td>Category</td><td><code>categories</code></td><td><code>id</code>, <code>name</code></td></tr>
+<tr><td>Post</td><td><code>posts</code></td><td><code>id</code>, <code>title</code>, <code>body</code>, <code>status</code> (enum), <code>category_id</code> (FK)</td></tr>
+<tr><td>Tag</td><td><code>tags</code></td><td><code>id</code>, <code>name</code></td></tr>
+<tr><td>Post–Tag join</td><td><code>post_tags</code></td><td><code>post_id</code>, <code>tag_id</code></td></tr>
+</tbody></table>
+</div>
+<p>The admin UI exposes:</p>
+<ul>
+<li>Full CRUD for all three entities</li>
+<li>Post list with search across <code>title</code> and <code>body</code></li>
+<li>Post list with filters on <code>status</code> and <code>category_id</code></li>
+<li>A foreign-key picker for category on the post form</li>
+<li>A many-to-many tag selector on the post form</li>
+<li>Auto-detected enum select for <code>status</code> (Draft / Published)</li>
+<li>A default admin user (<code>admin</code> / <code>admin</code>) created on first boot</li>
+</ul>
+<hr />
+<h2 id="database-setup"><a class="header" href="#database-setup">Database setup</a></h2>
+<p>The example ships a <code>docker-compose.yml</code> that starts a Postgres 16 container:</p>
+<pre><code class="language-yaml">services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: blog
+      POSTGRES_PASSWORD: blog
+      POSTGRES_DB: blog
+    ports:
+      - "5432:5432"
+</code></pre>
+<p>Start the database:</p>
+<pre><code class="language-bash">cd examples/blog
+docker compose up -d db
+</code></pre>
+<p>The app defaults to <code>postgres://blog:blog@localhost:5432/blog</code>. Override with <code>DATABASE_URL</code> if needed.</p>
+<hr />
+<h2 id="running-the-example-1"><a class="header" href="#running-the-example-1">Running the example</a></h2>
+<pre><code class="language-bash">cd examples/blog
+cargo run
+</code></pre>
+<p>Migrations run automatically on startup. Open <code>http://localhost:3000/admin</code> and log in with <code>admin</code> / <code>admin</code>.</p>
+<p>To run the full stack (database + app) in containers:</p>
+<pre><code class="language-bash">docker compose up
+</code></pre>
+<hr />
+<h2 id="walkthrough-mainrs"><a class="header" href="#walkthrough-mainrs">Walkthrough: <code>main.rs</code></a></h2>
+<h3 id="entity-models"><a class="header" href="#entity-models">Entity models</a></h3>
+<p>All three entities are defined inline in <code>main.rs</code> as Sea-ORM entities. This keeps the example self-contained — in a real project these would live in their own modules or crates.</p>
+<pre><code class="language-rust">mod post {
+    #[derive(Clone, Debug, PartialEq, EnumIter, DeriveActiveEnum)]
+    #[sea_orm(rs_type = "String", db_type = "String(StringLen::None)")]
+    pub enum Status {
+        #[sea_orm(string_value = "draft")]
+        Draft,
+        #[sea_orm(string_value = "published")]
+        Published,
+    }
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "posts")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        pub id: i32,
+        pub title: String,
+        pub body: String,
+        pub status: Status,
+        pub category_id: Option&lt;i32&gt;,
+    }
+    // ...
+}</code></pre>
+<p>Key points:</p>
+<ul>
+<li><code>Status</code> derives <code>DeriveActiveEnum</code> — axum-admin detects this automatically and renders a <code>&lt;select&gt;</code> with "Draft" and "Published" options. No extra configuration needed.</li>
+<li><code>category_id</code> is <code>Option&lt;i32&gt;</code> — nullable, meaning a post does not have to belong to a category.</li>
+</ul>
+<h3 id="startup-sequence"><a class="header" href="#startup-sequence">Startup sequence</a></h3>
+<pre><code class="language-rust">#[tokio::main]
+async fn main() {
+    let db = connect_db().await;
+    migration::Migrator::up(&amp;db, None).await.expect("...");
+    let router = admin::build(db).await;
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, router).await.unwrap();
+}</code></pre>
+<ol>
+<li><strong>Connect</strong> — reads <code>DATABASE_URL</code> from the environment, falls back to the Docker default.</li>
+<li><strong>Migrate</strong> — runs all pending Sea-ORM migrations before accepting traffic. This is safe to run on every boot.</li>
+<li><strong>Build</strong> — delegates to <code>admin::build(db)</code>, which returns an Axum <code>Router</code>.</li>
+<li><strong>Serve</strong> — hands the router to Axum's standard server loop.</li>
+</ol>
+<hr />
+<h2 id="walkthrough-adminrs"><a class="header" href="#walkthrough-adminrs">Walkthrough: <code>admin.rs</code></a></h2>
+<h3 id="auth-setup"><a class="header" href="#auth-setup">Auth setup</a></h3>
+<pre><code class="language-rust">pub async fn build(db: DatabaseConnection) -&gt; Router {
+    let auth = SeaOrmAdminAuth::new(db.clone())
+        .await
+        .expect("failed to initialize auth");
+    auth.ensure_user("admin", "admin")
+        .await
+        .expect("failed to ensure admin user");</code></pre>
+<p><code>SeaOrmAdminAuth</code> creates the <code>admin_users</code> and <code>admin_roles</code> tables (via its own migrations) and wires up session-based login. <code>ensure_user</code> is idempotent — it creates the user on first run, does nothing on subsequent boots.</p>
+<h3 id="adminapp-configuration"><a class="header" href="#adminapp-configuration">AdminApp configuration</a></h3>
+<pre><code class="language-rust">AdminApp::new()
+    .title("Blog Admin")
+    .icon("fa-solid fa-newspaper")
+    .prefix("/admin")
+    .template_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/templates"))
+    .seaorm_auth(auth)</code></pre>
+<ul>
+<li><code>.title()</code> — sets the name shown in the nav header.</li>
+<li><code>.icon()</code> — Font Awesome class for the logo icon.</li>
+<li><code>.prefix("/admin")</code> — all admin routes are mounted under this path.</li>
+<li><code>.template_dir()</code> — path to local Tera templates that override defaults. The <code>concat!(env!(...))</code> macro resolves the absolute path at compile time, which is required when the binary is run from a different working directory.</li>
+<li><code>.seaorm_auth(auth)</code> — attaches the authentication layer.</li>
+</ul>
+<h3 id="entity-group"><a class="header" href="#entity-group">Entity group</a></h3>
+<pre><code class="language-rust">.register(
+    EntityGroupAdmin::new("Blog")
+        .register(categories_admin)
+        .register(posts_admin)
+        .register(tags_admin)
+)</code></pre>
+<p><code>EntityGroupAdmin</code> is a named section in the sidebar. All three entities appear under a "Blog" heading. You can have multiple groups for larger applications.</p>
+<h3 id="categories-entity"><a class="header" href="#categories-entity">Categories entity</a></h3>
+<pre><code class="language-rust">EntityAdmin::from_entity::&lt;category::Entity&gt;("categories")
+    .label("Categories")
+    .icon("fa-solid fa-folder")
+    .list_display(vec!["id".to_string(), "name".to_string()])
+    .search_fields(vec!["name".to_string()])
+    .adapter(Box::new(SeaOrmAdapter::&lt;category::Entity&gt;::new(db.clone())))</code></pre>
+<ul>
+<li><code>from_entity</code> — infers all fields from the Sea-ORM entity. Without explicit <code>.field()</code> calls, the admin generates default inputs for each column.</li>
+<li><code>list_display</code> — controls which columns appear in the list view and their order.</li>
+<li><code>search_fields</code> — enables the search box and specifies which columns to query with a <code>LIKE</code> filter.</li>
+<li><code>adapter</code> — the Sea-ORM adapter handles all database reads and writes for this entity.</li>
+</ul>
+<h3 id="tags-entity"><a class="header" href="#tags-entity">Tags entity</a></h3>
+<p>Tags is identical to categories in structure — a simple two-column entity with search on <code>name</code>. It follows the same minimal pattern.</p>
+<h3 id="posts-entity--the-interesting-one"><a class="header" href="#posts-entity--the-interesting-one">Posts entity — the interesting one</a></h3>
+<pre><code class="language-rust">EntityAdmin::from_entity::&lt;post::Entity&gt;("posts")
+    .label("Posts")
+    .icon("fa-solid fa-file-lines")
+    .field(
+        Field::text("title")
+            .required()
+            .min_length(3)
+            .max_length(255),
+    )
+    .field(Field::textarea("body").max_length(10000))
+    .field(Field::foreign_key(
+        "category_id",
+        "Category",
+        Box::new(SeaOrmAdapter::&lt;category::Entity&gt;::new(db.clone())),
+        "id",
+        "name",
+    ))
+    .field(
+        Field::many_to_many(
+            "tags",
+            Box::new(SeaOrmManyToManyAdapter::new(
+                db.clone(),
+                "post_tags",   // join table
+                "post_id",     // FK to this entity
+                "tag_id",      // FK to related entity
+                "tags",        // related table
+                "id",          // related PK
+                "name",        // related display column
+            )),
+        )
+        .label("Tags"),
+    )
+    .search_fields(vec!["title".to_string(), "body".to_string()])
+    .filter_fields(vec!["status".to_string(), "category_id".to_string()])
+    .adapter(Box::new(SeaOrmAdapter::&lt;post::Entity&gt;::new(db.clone())))</code></pre>
+<p><strong>Field overrides</strong> — explicit <code>.field()</code> calls replace the auto-generated defaults for those columns:</p>
+<ul>
+<li><code>Field::text("title")</code> — single-line text input with server-side validation. <code>.required()</code> makes the field mandatory. <code>.min_length(3).max_length(255)</code> adds length constraints enforced on save.</li>
+<li><code>Field::textarea("body")</code> — multi-line textarea. <code>.max_length(10000)</code> prevents oversized payloads.</li>
+</ul>
+<p><strong>Foreign key field</strong> — <code>Field::foreign_key</code> renders a dropdown populated by querying the categories adapter. The four string arguments are: column name on <code>posts</code>, display label, adapter, PK column name, display column name. When editing a post, the dropdown shows category names but stores category IDs.</p>
+<p><strong>Many-to-many field</strong> — <code>Field::many_to_many</code> with <code>SeaOrmManyToManyAdapter</code> handles the <code>post_tags</code> join table transparently. On save, axum-admin diffs the selected tag IDs against the current join table rows and issues the appropriate inserts and deletes. The adapter arguments map directly to the join table schema.</p>
+<p><strong>Search and filters</strong> — <code>search_fields</code> queries both <code>title</code> and <code>body</code> columns. <code>filter_fields</code> adds sidebar filter widgets for <code>status</code> (rendered as an enum select because the column maps to <code>Status</code>) and <code>category_id</code> (rendered as a foreign-key dropdown).</p>
+<hr />
+<h2 id="adapting-this-to-your-own-project"><a class="header" href="#adapting-this-to-your-own-project">Adapting this to your own project</a></h2>
+<ol>
+<li>Define your Sea-ORM entities (or use existing ones from your domain crate).</li>
+<li>Call <code>AdminApp::new()</code> and configure title, prefix, and auth.</li>
+<li>For each entity, create an <code>EntityAdmin::from_entity</code> and attach a <code>SeaOrmAdapter</code>.</li>
+<li>Add explicit <code>Field</code> definitions only where you need validation, custom widgets, or relationship pickers — everything else is auto-detected.</li>
+<li>Group related entities with <code>EntityGroupAdmin</code>.</li>
+<li>Call <code>.into_router().await</code> and merge the resulting <code>Router</code> into your Axum application.</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+    </div>
+    </body>
+</html>

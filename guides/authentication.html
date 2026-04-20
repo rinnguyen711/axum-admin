@@ -1,0 +1,330 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Authentication - axum-admin</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="A modern admin dashboard framework for Axum">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Getting Started</li><li class="chapter-item expanded "><a href="../getting-started/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="../getting-started/quick-start.html"><strong aria-hidden="true">2.</strong> Quick Start</a></li><li class="chapter-item expanded "><a href="../getting-started/blog-example.html"><strong aria-hidden="true">3.</strong> Blog Example</a></li><li class="chapter-item expanded affix "><li class="part-title">Configuration</li><li class="chapter-item expanded "><a href="../configuration/options.html"><strong aria-hidden="true">4.</strong> Options</a></li><li class="chapter-item expanded affix "><li class="part-title">API Reference</li><li class="chapter-item expanded "><a href="../api-reference/admin-app.html"><strong aria-hidden="true">5.</strong> AdminApp</a></li><li class="chapter-item expanded "><a href="../api-reference/entity-admin.html"><strong aria-hidden="true">6.</strong> EntityAdmin</a></li><li class="chapter-item expanded "><a href="../api-reference/fields.html"><strong aria-hidden="true">7.</strong> Fields</a></li><li class="chapter-item expanded "><a href="../api-reference/data-adapter.html"><strong aria-hidden="true">8.</strong> DataAdapter</a></li><li class="chapter-item expanded "><a href="../api-reference/cargo-doc.html"><strong aria-hidden="true">9.</strong> Rustdoc (docs.rs)</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="../guides/authentication.html" class="active"><strong aria-hidden="true">10.</strong> Authentication</a></li><li class="chapter-item expanded "><a href="../guides/rbac.html"><strong aria-hidden="true">11.</strong> RBAC</a></li><li class="chapter-item expanded "><a href="../guides/custom-actions.html"><strong aria-hidden="true">12.</strong> Custom Actions</a></li><li class="chapter-item expanded "><a href="../guides/lifecycle-hooks.html"><strong aria-hidden="true">13.</strong> Lifecycle Hooks</a></li><li class="chapter-item expanded affix "><li class="part-title">Template Customization</li><li class="chapter-item expanded "><a href="../template-customization/overview.html"><strong aria-hidden="true">14.</strong> Overview</a></li><li class="chapter-item expanded "><a href="../template-customization/minijinja-context.html"><strong aria-hidden="true">15.</strong> MiniJinja Context</a></li><li class="chapter-item expanded "><a href="../template-customization/overriding-templates.html"><strong aria-hidden="true">16.</strong> Overriding Templates</a></li><li class="chapter-item expanded affix "><li class="part-title">Examples</li><li class="chapter-item expanded "><a href="../examples/blog-walkthrough.html"><strong aria-hidden="true">17.</strong> Blog Walkthrough</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">axum-admin</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/rinnguyen711/axum-admin" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/rinnguyen711/axum-admin/edit/main/docs/src/src/guides/authentication.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="authentication"><a class="header" href="#authentication">Authentication</a></h1>
+<p>axum-admin ships two auth backends out of the box and lets you plug in your own via the <code>AdminAuth</code> trait.</p>
+<h2 id="the-adminauth-trait"><a class="header" href="#the-adminauth-trait">The AdminAuth Trait</a></h2>
+<pre><code class="language-rust">#[async_trait]
+pub trait AdminAuth: Send + Sync {
+    async fn authenticate(
+        &amp;self,
+        username: &amp;str,
+        password: &amp;str,
+    ) -&gt; Result&lt;AdminUser, AdminError&gt;;
+
+    async fn get_session(&amp;self, session_id: &amp;str) -&gt; Result&lt;Option&lt;AdminUser&gt;, AdminError&gt;;
+}</code></pre>
+<p>The framework calls <code>authenticate</code> on login and <code>get_session</code> on every protected request. Both return an <code>AdminUser</code>:</p>
+<pre><code class="language-rust">pub struct AdminUser {
+    pub username: String,
+    pub session_id: String,
+    /// true = bypasses all permission checks (superuser access)
+    pub is_superuser: bool,
+}</code></pre>
+<h2 id="defaultadminauth"><a class="header" href="#defaultadminauth">DefaultAdminAuth</a></h2>
+<p><code>DefaultAdminAuth</code> is an in-memory backend. Credentials are configured at startup; sessions live for the process lifetime. Passwords are hashed with bcrypt.</p>
+<pre><code class="language-rust">use axum_admin::auth::DefaultAdminAuth;
+
+let auth = DefaultAdminAuth::new()
+    .add_user("admin", "s3cret");
+
+AdminApp::new()
+    .auth(Box::new(auth))
+    // ...</code></pre>
+<p><code>add_user</code> is builder-style and can be chained for multiple users. Every user created through <code>DefaultAdminAuth</code> is implicitly a superuser — it bypasses all permission checks.</p>
+<p>This backend is suitable for local development and single-user deployments. It has no persistence: users and sessions are lost on restart.</p>
+<h2 id="seaormadminauth"><a class="header" href="#seaormadminauth">SeaOrmAdminAuth</a></h2>
+<p><code>SeaOrmAdminAuth</code> stores users and sessions in PostgreSQL and integrates Casbin for RBAC. It requires the <code>seaorm</code> feature flag.</p>
+<h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
+<pre><code class="language-rust">use axum_admin::adapters::seaorm_auth::SeaOrmAdminAuth;
+
+let auth = SeaOrmAdminAuth::new(db.clone()).await?;
+
+// Seed a default user only when the users table is empty.
+auth.ensure_user("admin", "change-me").await?;
+
+AdminApp::new()
+    .seaorm_auth(auth)
+    // ...</code></pre>
+<p><code>SeaOrmAdminAuth::new</code> runs database migrations automatically (idempotent). It creates the <code>auth_users</code>, <code>auth_sessions</code>, and Casbin policy tables.</p>
+<h3 id="ensure_user"><a class="header" href="#ensure_user">ensure_user</a></h3>
+<pre><code class="language-rust">pub async fn ensure_user(&amp;self, username: &amp;str, password: &amp;str) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Creates a user with <code>is_superuser = true</code> and assigns the <code>admin</code> role <strong>only if no users exist yet</strong>. Safe to call on every application startup.</p>
+<h3 id="create_user"><a class="header" href="#create_user">create_user</a></h3>
+<pre><code class="language-rust">pub async fn create_user(
+    &amp;self,
+    username: &amp;str,
+    password: &amp;str,
+    is_superuser: bool,
+) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Creates a user unconditionally. Passwords are hashed with Argon2.</p>
+<h3 id="change_password"><a class="header" href="#change_password">change_password</a></h3>
+<pre><code class="language-rust">pub async fn change_password(
+    &amp;self,
+    username: &amp;str,
+    old_password: &amp;str,
+    new_password: &amp;str,
+) -&gt; Result&lt;(), AdminError&gt;</code></pre>
+<p>Verifies the old password before storing the new hash.</p>
+<h3 id="wiring-with-seaorm_auth"><a class="header" href="#wiring-with-seaorm_auth">Wiring with seaorm_auth</a></h3>
+<p><code>AdminApp::seaorm_auth</code> is a convenience method that sets both the auth backend and the Casbin enforcer in one call:</p>
+<pre><code class="language-rust">pub fn seaorm_auth(mut self, auth: SeaOrmAdminAuth) -&gt; Self</code></pre>
+<p>When <code>.seaorm_auth()</code> is used, the Users and Roles management pages appear automatically in the sidebar navigation.</p>
+<h2 id="custom-auth-backend"><a class="header" href="#custom-auth-backend">Custom Auth Backend</a></h2>
+<p>Implement <code>AdminAuth</code> on any struct and pass it with <code>.auth()</code>:</p>
+<pre><code class="language-rust">use axum_admin::auth::{AdminAuth, AdminUser};
+use axum_admin::error::AdminError;
+use async_trait::async_trait;
+
+pub struct MyAuth;
+
+#[async_trait]
+impl AdminAuth for MyAuth {
+    async fn authenticate(
+        &amp;self,
+        username: &amp;str,
+        password: &amp;str,
+    ) -&gt; Result&lt;AdminUser, AdminError&gt; {
+        // verify credentials, create a session record, return AdminUser
+        todo!()
+    }
+
+    async fn get_session(&amp;self, session_id: &amp;str) -&gt; Result&lt;Option&lt;AdminUser&gt;, AdminError&gt; {
+        // look up session by ID, return None if expired or missing
+        todo!()
+    }
+}
+
+AdminApp::new()
+    .auth(Box::new(MyAuth))</code></pre>
+<p>Custom backends always use the basic <code>.auth()</code> path. The Casbin enforcer and the Users/Roles nav pages are only available through <code>.seaorm_auth()</code>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../api-reference/cargo-doc.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../guides/rbac.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../api-reference/cargo-doc.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../guides/rbac.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
