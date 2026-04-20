@@ -10,6 +10,7 @@ These variables are present in both `list.html` and `form.html`:
 |---|---|---|
 | `admin_title` | string | The title set via `.title("My Admin")` |
 | `admin_icon` | string | Font Awesome class for the sidebar logo icon |
+| `entities` | array | Flat list of all registered entities (see EntityRef below) |
 | `nav` | array | Sidebar navigation items (see below) |
 | `current_entity` | string | Name of the currently active entity |
 | `entity_name` | string | URL slug of the current entity |
@@ -38,6 +39,17 @@ The `nav` array contains items of two types, distinguished by a `type` field:
 | `label` | string | Group display label |
 | `entities` | array | Child entity links (same shape as entity type) |
 | `active` | bool | True if any child is currently active |
+
+### EntityRef (`entities[n]`)
+
+The `entities` array (available on all list and form pages) is a flat list of every registered entity, useful for building custom navigation or cross-entity links.
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Entity URL slug |
+| `label` | string | Display label |
+| `icon` | string | Font Awesome class |
+| `group` | string or null | Group name if the entity belongs to a group |
 
 ## List Page (`list.html`, `list_table.html`)
 
@@ -107,6 +119,20 @@ The `nav` array contains items of two types, distinguished by a `type` field:
 | `options` | array of `[value, label]` pairs | Options for `Select` fields |
 | `selected_ids` | array of strings | Currently selected IDs for `ManyToMany` fields |
 | `accept` | array of strings | Accepted MIME types for `File` fields |
+
+## Change Password Page (`change_password.html`)
+
+| Variable | Type | Description |
+|---|---|---|
+| `admin_title` | string | Admin panel title |
+| `admin_icon` | string | Font Awesome class for the sidebar logo icon |
+| `nav` | array | Sidebar navigation items (same shape as common `nav`) |
+| `current_entity` | string | Always an empty string on this page |
+| `csrf_token` | string | CSRF token to include in the form submission |
+| `error` | string or null | Inline error message (e.g. wrong current password) |
+| `success` | string or null | Inline success message after a successful password change |
+| `flash_success` | string or null | Success flash message carried over from a redirect |
+| `flash_error` | string or null | Error flash message carried over from a redirect |
 
 ## Login Page (`login.html`)
 
