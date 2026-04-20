@@ -131,8 +131,13 @@ async fn main() {
 ### Auth setup
 
 ```rust
-let auth = SeaOrmAdminAuth::new(db.clone()).await?;
-auth.ensure_user("admin", "admin").await?;
+pub async fn build(db: DatabaseConnection) -> Router {
+    let auth = SeaOrmAdminAuth::new(db.clone())
+        .await
+        .expect("failed to initialize auth");
+    auth.ensure_user("admin", "admin")
+        .await
+        .expect("failed to ensure admin user");
 ```
 
 `SeaOrmAdminAuth` creates the `admin_users` and `admin_roles` tables (via its own migrations) and wires up session-based login. `ensure_user` is idempotent — it creates the user on first run, does nothing on subsequent boots.
