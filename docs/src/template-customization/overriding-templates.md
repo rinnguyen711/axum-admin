@@ -8,6 +8,7 @@ Use `.template()` for a single template you want to keep inline or load with `in
 
 ```rust
 AdminApp::new()
+    // home.html is the dashboard landing page shown after login
     .template("home.html", include_str!("../templates/admin/home.html"))
     // ...
 ```

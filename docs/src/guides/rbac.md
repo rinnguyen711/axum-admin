@@ -52,6 +52,8 @@ pub async fn create_role(
 
 Creates a role with a specific set of `(entity, action)` pairs. Returns `AdminError::Conflict` if the role already exists.
 
+> **Action strings:** `create_role` takes raw Casbin action strings — `"view"`, `"create"`, `"edit"`, or `"delete"`. The entity-level guards (`require_view`, `require_edit`, etc.) automatically check `entity_name.action` against the Casbin policy; you never need to write the dotted form yourself when using those helpers.
+
 ```rust
 auth.create_role("editor", &[
     ("posts".to_string(), "view".to_string()),
