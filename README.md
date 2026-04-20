@@ -1,6 +1,6 @@
 # axum-admin
 
-A modern admin dashboard framework for [Axum](https://github.com/tokio-rs/axum). Register your entities and get a full CRUD dashboard — search, filtering, pagination, bulk actions, custom actions, and built-in authentication — with zero frontend build step.
+A modern admin dashboard framework for [Axum](https://github.com/tokio-rs/axum). **[Documentation](https://rinnguyen711.github.io/axum-admin/)** Register your entities and get a full CRUD dashboard — search, filtering, pagination, bulk actions, custom actions, and built-in authentication — with zero frontend build step.
 
 Inspired by Django Admin and Laravel Nova.
 
