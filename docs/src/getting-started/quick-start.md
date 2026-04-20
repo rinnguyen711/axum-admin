@@ -33,13 +33,13 @@ let app = AdminApp::new()
         EntityAdmin::new("posts")
             .label("Posts")
             .adapter(Box::new(SeaOrmAdapter::<post::Entity>::new(db.clone())))
-            .field(Field::new("title").label("Title"))
-            .field(Field::new("body").label("Body").textarea())
+            .field(Field::text("title").label("Title"))
+            .field(Field::textarea("body").label("Body"))
     )
     .into_router()
     .await;
 
-let router = axum::Router::new().nest("/", app);
+let router = axum::Router::new().merge(app);
 ```
 
 ## 4. Start the server
