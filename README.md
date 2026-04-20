@@ -104,7 +104,7 @@ Change the default password under **Users** after first login.
 
 See [examples/blog](examples/blog) for a full working example with categories, posts, tags, foreign keys, many-to-many relations, filters, and RBAC roles.
 
-Full documentation coming soon.
+Full documentation at [rinnguyen711.github.io/axum-admin](https://rinnguyen711.github.io/axum-admin/).
 
 ## License
 
