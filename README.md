@@ -4,6 +4,8 @@ A modern admin dashboard framework for [Axum](https://github.com/tokio-rs/axum).
 
 Inspired by Django Admin and Laravel Nova.
 
+![axum-admin dashboard](docs/src/image.png)
+
 ## Features
 
 - CRUD out of the box — list, create, edit, delete for any entity

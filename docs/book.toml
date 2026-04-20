@@ -6,6 +6,7 @@ language = "en"
 src = "src"
 
 [output.html]
+playground.runnable = false
 git-repository-url = "https://github.com/rinnguyen711/axum-admin"
 edit-url-template = "https://github.com/rinnguyen711/axum-admin/edit/main/docs/src/{path}"
 no-section-label = false

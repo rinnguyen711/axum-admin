@@ -1,5 +1,7 @@
 # Quick Start
 
+![axum-admin dashboard](../image.png)
+
 This guide gets you from zero to a running admin dashboard in 4 steps.
 
 ## 1. Set the database URL
