@@ -1,0 +1,14 @@
+[book]
+title = "axum-admin"
+description = "A modern admin dashboard framework for Axum"
+authors = ["axum-admin contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/rinnguyen711/axum-admin"
+edit-url-template = "https://github.com/rinnguyen711/axum-admin/edit/main/docs/src/{path}"
+no-section-label = false
+
+[output.html.search]
+enable = true
